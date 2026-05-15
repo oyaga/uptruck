@@ -1,0 +1,44 @@
+# docker compose up -d → sobe Postgres + app no http://localhost:8080
+# Em produção, troque IMAGE_TAG via .env e coloque um proxy (nginx/traefik)
+# na frente para o domínio rastreio.uppertruck.com.
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: freteantt
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d freteantt"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    ports:
+      - "5432:5432"
+
+  app:
+    image: ${IMAGE_TAG:-freteantt:local}
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: "host=db user=postgres password=postgres dbname=freteantt port=5432 sslmode=disable TimeZone=America/Sao_Paulo"
+      JWT_SECRET: ${JWT_SECRET:-troque-este-segredo}
+      PORT: "8080"
+      APP_ENV: production
+      # rastreio.uppertruck.com está em HTTP — mantenha COOKIE_SECURE=false.
+      # Quando colocar TLS na frente, mude para true.
+      COOKIE_SECURE: "false"
+    ports:
+      - "8080:8080"
+
+volumes:
+  pgdata:

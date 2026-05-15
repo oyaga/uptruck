@@ -1,0 +1,25 @@
+# dependências
+frontend/node_modules/
+backend/vendor/
+
+# builds
+frontend/.next/
+frontend/out/
+backend/freteantt
+backend/manager/dist/*
+!backend/manager/dist/.gitkeep
+
+# env e segredos
+.env
+.env.*
+!.env.example
+
+# docker volumes locais
+pgdata/
+
+# Claude Code
+.claude/
+
+# OS
+.DS_Store
+Thumbs.db

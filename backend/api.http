@@ -1,0 +1,104 @@
+### FreteANTT API — testes manuais via REST Client (VS Code)
+@host = http://localhost:8080
+
+### 1. Login do cotador
+# @name loginCotador
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "cotador@freteantt.com",
+  "password": "cotador123"
+}
+
+###
+@tokenCotador = {{loginCotador.response.body.token}}
+
+### 2. Login do admin
+# @name loginAdmin
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@freteantt.com",
+  "password": "admin123"
+}
+
+###
+@tokenAdmin = {{loginAdmin.response.body.token}}
+
+### 3. Criar cotação (cotador) — válida
+POST {{host}}/api/cotacoes
+Authorization: Bearer {{tokenCotador}}
+Content-Type: application/json
+
+{
+  "cep_ori": "09371-001",
+  "uf_ori": "SP",
+  "cidade_ori": "MAUÁ",
+  "bairro_ori": "JARDIM ZAÍRA",
+  "cep_des": "20040-020",
+  "uf_des": "RJ",
+  "cidade_des": "RIO DE JANEIRO",
+  "bairro_des": "CENTRO",
+  "distancia_km": 430,
+  "produto": "BQ STD MONTADO",
+  "embalagem": "Palete",
+  "unitizacao": "paletizada",
+  "peso_kg": 3500,
+  "volumes": 50,
+  "cubagem_m3": 12,
+  "valor_nf": 45000,
+  "veiculo": "Carreta",
+  "categoria": "Geral",
+  "valor_sugerido": 4850
+}
+
+### 4. Criar cotação inválida (valor abaixo do piso) → 422
+POST {{host}}/api/cotacoes
+Authorization: Bearer {{tokenCotador}}
+Content-Type: application/json
+
+{
+  "uf_ori": "SP",
+  "cidade_ori": "SOROCABA",
+  "uf_des": "BA",
+  "cidade_des": "SALVADOR",
+  "distancia_km": 1850,
+  "veiculo": "Toco",
+  "categoria": "Geral",
+  "valor_sugerido": 100
+}
+
+### 5. Listar cotações do cotador logado
+GET {{host}}/api/cotacoes
+Authorization: Bearer {{tokenCotador}}
+
+### 6. Listar todas (admin)
+GET {{host}}/api/admin/cotacoes
+Authorization: Bearer {{tokenAdmin}}
+
+### 7. Listar pendentes (admin)
+GET {{host}}/api/admin/cotacoes?status=Aguardando
+Authorization: Bearer {{tokenAdmin}}
+
+### 8. Aprovar cotação 1
+PATCH {{host}}/api/admin/cotacoes/1/aprovar
+Authorization: Bearer {{tokenAdmin}}
+Content-Type: application/json
+
+{ "comment": "Aprovado. Valor dentro da margem." }
+
+### 9. Reprovar cotação 2
+PATCH {{host}}/api/admin/cotacoes/2/reprovar
+Authorization: Bearer {{tokenAdmin}}
+Content-Type: application/json
+
+{ "comment": "Distância informada não confere." }
+
+### 10. Cotador tentando acessar /admin → 403
+GET {{host}}/api/admin/cotacoes
+Authorization: Bearer {{tokenCotador}}
+
+### 11. Health
+GET {{host}}/health

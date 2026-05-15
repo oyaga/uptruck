@@ -1,0 +1,36 @@
+# Repos / metadados
+.git
+.gitignore
+.github
+.vscode
+.idea
+*.md
+LICENSE
+
+# Frontend
+frontend/node_modules
+frontend/.next
+frontend/out
+frontend/.turbo
+frontend/.env
+frontend/.env.local
+frontend/.env.production
+
+# Backend
+backend/.env
+backend/*.exe
+backend/freteantt
+backend/freteantt.exe
+backend/manager/dist/*
+!backend/manager/dist/.gitkeep
+
+# Build outputs / cache
+**/tmp
+**/*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+docker-compose.override.yml

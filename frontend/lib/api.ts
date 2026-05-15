@@ -1,0 +1,165 @@
+// Cliente HTTP fino para a API Go. Em produção, frontend e backend são servidos
+// pelo mesmo binário (mesmo origin) — o cookie httpOnly viaja automaticamente.
+// Em dev, o cookie é setado pelo Go via Set-Cookie e o navegador o reenvia.
+
+export interface ApiUser {
+  id: number;
+  email: string;
+  name: string;
+  role: "cotador" | "admin";
+}
+
+export interface NotificacaoApi {
+  id: number;
+  user_id: number;
+  type:
+    | "cotacao_pendente"
+    | "cotacao_aprovada"
+    | "cotacao_reprovada"
+    | string;
+  title: string;
+  message: string;
+  cotacao_id?: number;
+  read_at?: string | null;
+  created_at: string;
+}
+
+export interface CotacaoApi {
+  id: number;
+  status: "Aguardando" | "Aprovada" | "Reprovada";
+  created_at: string;
+  updated_at: string;
+  cep_ori?: string;
+  uf_ori: string;
+  cidade_ori: string;
+  bairro_ori?: string;
+  cep_des?: string;
+  uf_des: string;
+  cidade_des: string;
+  bairro_des?: string;
+  distancia_km: number;
+  produto?: string;
+  embalagem?: string;
+  unitizacao?: string;
+  peso_kg?: number;
+  volumes?: number;
+  cubagem_m3?: number;
+  valor_nf?: number;
+  veiculo: string;
+  categoria: string;
+  antt_min: number;
+  valor_sugerido: number;
+  admin_comment?: string;
+  approved_by?: number;
+  approved_at?: string;
+  created_by?: number;
+}
+
+export class ApiError extends Error {
+  status: number;
+  payload: unknown;
+  constructor(status: number, message: string, payload: unknown) {
+    super(message);
+    this.status = status;
+    this.payload = payload;
+  }
+}
+
+function apiBase(): string {
+  // Em dev, NEXT_PUBLIC_API_URL aponta para http://localhost:8080.
+  // Em produção (servido pelo Go) deixe vazio para usar o mesmo origin.
+  return process.env.NEXT_PUBLIC_API_URL || "";
+}
+
+async function handle<T>(r: Response): Promise<T> {
+  const txt = await r.text();
+  const data = txt ? JSON.parse(txt) : null;
+  if (!r.ok) {
+    const msg = (data && (data.error || data.message)) || `HTTP ${r.status}`;
+    throw new ApiError(r.status, msg, data);
+  }
+  return data as T;
+}
+
+interface ReqOpts {
+  body?: unknown;
+}
+
+async function req<T>(
+  method: string,
+  path: string,
+  opts: ReqOpts = {},
+): Promise<T> {
+  const headers: Record<string, string> = {};
+  if (opts.body) headers["Content-Type"] = "application/json";
+  const r = await fetch(apiBase() + path, {
+    method,
+    headers,
+    credentials: "include",
+    body: opts.body ? JSON.stringify(opts.body) : undefined,
+    cache: "no-store",
+  });
+  return handle<T>(r);
+}
+
+export const api = {
+  login: (email: string, password: string) =>
+    req<{ token: string; user: ApiUser }>("POST", "/api/auth/login", {
+      body: { email, password },
+    }),
+
+  // Resolve a sessão a partir do cookie httpOnly. Usado pra revalidar
+  // quando o frontend (especialmente PWA) abre sem localStorage.
+  me: () => req<ApiUser>("GET", "/api/auth/me"),
+
+  logout: () => req<{ ok: boolean }>("POST", "/api/auth/logout"),
+
+  listMine: () => req<CotacaoApi[]>("GET", "/api/cotacoes"),
+
+  create: (body: Partial<CotacaoApi>) =>
+    req<CotacaoApi>("POST", "/api/cotacoes", { body }),
+
+  listAll: (status?: string) =>
+    req<CotacaoApi[]>(
+      "GET",
+      `/api/admin/cotacoes${status ? `?status=${encodeURIComponent(status)}` : ""}`,
+    ),
+
+  aprovar: (id: number, comment: string) =>
+    req<CotacaoApi>("PATCH", `/api/admin/cotacoes/${id}/aprovar`, {
+      body: { comment },
+    }),
+
+  reprovar: (id: number, comment: string) =>
+    req<CotacaoApi>("PATCH", `/api/admin/cotacoes/${id}/reprovar`, {
+      body: { comment },
+    }),
+
+  // ── Notificações ───────────────────────────────────────────────────────
+  listNotifications: () =>
+    req<NotificacaoApi[]>("GET", "/api/notificacoes"),
+
+  unreadCount: () =>
+    req<{ unread: number }>("GET", "/api/notificacoes/unread-count"),
+
+  markNotificationRead: (id: number) =>
+    req<{ ok: boolean }>("PATCH", `/api/notificacoes/${id}/read`),
+
+  markAllNotificationsRead: () =>
+    req<{ ok: boolean }>("POST", "/api/notificacoes/read-all"),
+
+  // ── Web Push ──────────────────────────────────────────────────────────
+  vapidPublicKey: () =>
+    req<{ public_key: string }>("GET", "/api/push/vapid-public-key"),
+
+  subscribePush: (body: {
+    endpoint: string;
+    keys: { p256dh: string; auth: string };
+    user_agent?: string;
+  }) => req<{ ok: boolean }>("POST", "/api/push/subscribe", { body }),
+
+  unsubscribePush: (endpoint: string) =>
+    req<{ ok: boolean }>("POST", "/api/push/unsubscribe", {
+      body: { endpoint },
+    }),
+};

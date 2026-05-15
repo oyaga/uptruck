@@ -1,0 +1,2 @@
+Build do frontend Next.js. Não editar manualmente — o conteúdo é gerado por
+`bun run build` em frontend/ e copiado pelo script de build.

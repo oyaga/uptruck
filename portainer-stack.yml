@@ -1,0 +1,71 @@
+# FreteANTT — stack para Portainer
+# Cole este YAML em Stacks → Add stack → Web editor.
+# Configure as variáveis em "Environment variables" antes de fazer Deploy.
+#
+# Variáveis obrigatórias (setar no Portainer):
+#   IMAGE_TAG          — ex: seuusuario/freteantt:latest  (precisa estar no Docker Hub)
+#   JWT_SECRET         — gere com: openssl rand -hex 32
+#   POSTGRES_PASSWORD  — senha do banco
+#
+# Variáveis opcionais:
+#   APP_PORT           — porta exposta no host (default 8080)
+#   COOKIE_SECURE      — "true" quando estiver atrás de HTTPS (default false)
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: freteantt-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: freteantt
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD}
+      POSTGRES_DB: freteantt
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U freteantt -d freteantt"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - freteantt
+
+  app:
+    image: ${IMAGE_TAG:?defina IMAGE_TAG (ex: seuusuario/freteantt:latest)}
+    container_name: freteantt-app
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: "host=db user=freteantt password=${POSTGRES_PASSWORD} dbname=freteantt port=5432 sslmode=disable TimeZone=America/Sao_Paulo"
+      JWT_SECRET: ${JWT_SECRET:?defina JWT_SECRET}
+      PORT: "8080"
+      APP_ENV: production
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+    ports:
+      - "${APP_PORT:-8080}:8080"
+    networks:
+      - freteantt
+
+    # ─── Opção A: expõe direto na porta APP_PORT (default 8080) ────────────
+    # Aponte um proxy (nginx/Caddy) externo para esta porta e configure o
+    # domínio rastreio.uppertruck.com lá. Quando colocar TLS, mude COOKIE_SECURE
+    # para "true" e refaça o deploy desta stack.
+    #
+    # ─── Opção B: integração com Traefik (descomente se já usa Traefik) ────
+    # labels:
+    #   - "traefik.enable=true"
+    #   - "traefik.http.routers.freteantt.rule=Host(`rastreio.uppertruck.com`)"
+    #   - "traefik.http.routers.freteantt.entrypoints=web"
+    #   - "traefik.http.services.freteantt.loadbalancer.server.port=8080"
+    #   # Se já tiver TLS no Traefik, troque entrypoints=web por websecure
+    #   # e adicione o cert resolver, depois mude COOKIE_SECURE=true.
+
+volumes:
+  pgdata:
+    name: freteantt-pgdata
+
+networks:
+  freteantt:
+    name: freteantt-net
