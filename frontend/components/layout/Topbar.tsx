@@ -15,38 +15,126 @@ export default function Topbar({ pendingCount = 0 }: Props) {
   const role = user?.role || "cotador";
 
   return (
-    <header className="border-b border-gray-200 bg-white px-8">
-      <div className="mx-auto flex h-15 max-w-[1100px] items-center justify-between py-3">
-        <Link href="/cotacao" className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-900">
-            <Truck size={16} className="text-white" />
+    <header
+      style={{
+        height: 52,
+        background: "var(--ut-black)",
+        borderBottom: "2px solid var(--ut-yellow)",
+      }}
+    >
+      <div
+        className="mx-auto flex h-full max-w-[1100px] items-center justify-between px-6"
+      >
+        {/* Brand */}
+        <Link href={role === "admin" ? "/admin" : "/cotacao"} className="flex items-center gap-2.5">
+          <div
+            className="ut-logo-plaque"
+            style={{ width: 36, height: 36 }}
+          >
+            <Truck size={18} color="var(--ut-black)" strokeWidth={2.5} />
           </div>
           <div>
-            <div className="text-[15px] font-extrabold leading-none text-gray-900">
+            <div
+              style={{
+                fontFamily: "var(--ut-font-sans)",
+                fontSize: 15,
+                fontWeight: 900,
+                color: "var(--ut-white)",
+                lineHeight: 1,
+                letterSpacing: "-0.01em",
+              }}
+            >
               UpperTruck
             </div>
-            <div className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+            <div
+              style={{
+                fontFamily: "var(--ut-font-sans)",
+                fontSize: 10,
+                fontWeight: 700,
+                color: "var(--ut-yellow)",
+                textTransform: "uppercase",
+                letterSpacing: "0.14em",
+                lineHeight: 1,
+                marginTop: 3,
+              }}
+            >
               Aprovação de Fretes
             </div>
           </div>
         </Link>
-        <nav className="flex items-center gap-1 rounded-lg bg-gray-100 p-1">
-          <Link
-            href="/cotacao"
-            className="flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-4 py-1.5 text-sm font-semibold text-gray-900"
-          >
-            <User size={14} /> Cotador
-          </Link>
+
+        {/* Nav */}
+        <nav className="flex items-center gap-1">
+          {/* Cotador link — hidden for admin */}
+          {role !== "admin" && (
+            <Link
+              href="/cotacao"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 5,
+                padding: "5px 12px",
+                borderRadius: "var(--ut-radius-sm)",
+                fontSize: "var(--ut-fs-sm)",
+                fontWeight: 600,
+                color: "var(--ut-white)",
+                textDecoration: "none",
+                transition: "background var(--ut-dur-fast) var(--ut-ease)",
+              }}
+              onMouseEnter={(e) =>
+                (e.currentTarget.style.background = "rgba(255,255,255,0.08)")
+              }
+              onMouseLeave={(e) =>
+                (e.currentTarget.style.background = "transparent")
+              }
+            >
+              <User size={13} />
+              Cotador
+            </Link>
+          )}
+
           {role === "admin" && (
             <Link
               href="/admin"
-              className="flex items-center gap-1.5 rounded-md px-4 py-1.5 text-sm font-semibold text-gray-700 hover:bg-white"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 5,
+                padding: "5px 12px",
+                borderRadius: "var(--ut-radius-sm)",
+                fontSize: "var(--ut-fs-sm)",
+                fontWeight: 600,
+                textDecoration: "none",
+                transition: "background var(--ut-dur-fast) var(--ut-ease)",
+              }}
+              onMouseEnter={(e) =>
+                (e.currentTarget.style.background = "rgba(255,255,255,0.08)")
+              }
+              onMouseLeave={(e) =>
+                (e.currentTarget.style.background = "transparent")
+              }
             >
-              <Settings size={14} />
-              {pendingCount > 0 ? `Admin (${pendingCount})` : "Admin"}
+              {/* Pending badge */}
+              {pendingCount > 0 ? (
+                <span
+                  className="ut-badge pending"
+                  style={{ fontSize: 11, color: "var(--ut-pending-fg)" }}
+                >
+                  {pendingCount}
+                </span>
+              ) : (
+                <Settings size={13} style={{ color: "var(--ut-n-400)" }} />
+              )}
+              <span style={{ color: "var(--ut-white)" }}>
+                Admin{pendingCount > 0 ? ` (${pendingCount})` : ""}
+              </span>
             </Link>
           )}
+
+          {/* Notification bell */}
           <NotificationBell />
+
+          {/* Logout */}
           <LogoutButton />
         </nav>
       </div>
