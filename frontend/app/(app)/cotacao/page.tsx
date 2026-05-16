@@ -7,6 +7,7 @@ import { FileText, Loader2, Plus, Truck, X } from "lucide-react";
 import QuoteCard from "@/components/cotacao/QuoteCard";
 import { api, type CotacaoApi } from "@/lib/api";
 import { onNewNotification } from "@/lib/notify";
+import AuthGuard from "@/components/auth/AuthGuard";
 
 type StatusFilter = "all" | "Aguardando" | "Aprovada" | "Reprovada";
 
@@ -315,8 +316,10 @@ function MinhasCotacoes() {
 
 export default function Page() {
   return (
-    <Suspense fallback={null}>
-      <MinhasCotacoes />
-    </Suspense>
+    <AuthGuard role="cotador">
+      <Suspense fallback={null}>
+        <MinhasCotacoes />
+      </Suspense>
+    </AuthGuard>
   );
 }
