@@ -1,0 +1,95 @@
+# Deploy automatico do FreteANTT.
+# push na main -> build da imagem -> publica no ghcr.io -> redeploy da
+# stack freteantt (id 1) no Portainer via API.
+#
+# Secret necessario (ja configurado): PORTAINER_TOKEN (token ptr_... da API).
+# GITHUB_TOKEN e automatico; nenhum token de Docker Hub e necessario.
+name: build-deploy-freteantt
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-freteantt
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  PORTAINER_URL: https://kamisama.aikanakamura.com
+  STACK_ID: 1
+  ENDPOINT_ID: 3
+  IMAGE: ghcr.io/oyaga/freteantt
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login no ghcr.io
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build e push da imagem
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:latest
+            ${{ env.IMAGE }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Redeploy no Portainer
+        env:
+          PORTAINER_TOKEN: ${{ secrets.PORTAINER_TOKEN }}
+          NEW_IMAGE: ${{ env.IMAGE }}:${{ github.sha }}
+        run: |
+          set -euo pipefail
+          API="$PORTAINER_URL/api/stacks/$STACK_ID"
+
+          # Le o Env atual da stack pela API (mantem JWT_SECRET/POSTGRES_PASSWORD)
+          ENV_JSON=$(curl -fsS -H "X-API-Key: $PORTAINER_TOKEN" "$API" | jq -c '.Env')
+          # Conteudo atual do docker-compose
+          COMPOSE=$(curl -fsS -H "X-API-Key: $PORTAINER_TOKEN" "$API/file" | jq -r '.StackFileContent')
+
+          # Troca apenas o IMAGE_TAG
+          PAYLOAD=$(jq -n \
+            --arg file "$COMPOSE" \
+            --argjson env "$ENV_JSON" \
+            --arg img "$NEW_IMAGE" \
+            '{stackFileContent: $file,
+              env: ($env | map(if .name == "IMAGE_TAG" then .value = $img else . end)),
+              pullImage: true}')
+
+          curl -fsS -X PUT \
+            -H "X-API-Key: $PORTAINER_TOKEN" \
+            -H "Content-Type: application/json" \
+            "$API?endpointId=$ENDPOINT_ID" \
+            -d "$PAYLOAD" -o /dev/null
+
+          echo "Redeploy disparado: $NEW_IMAGE"
+
+      - name: Verificar aplicacao
+        run: |
+          for i in $(seq 1 20); do
+            if curl -fsS -o /dev/null https://app.lotado.com.br; then
+              echo "App respondendo."; exit 0
+            fi
+            echo "Aguardando deploy... ($i)"; sleep 6
+          done
+          echo "App nao respondeu a tempo"; exit 1
