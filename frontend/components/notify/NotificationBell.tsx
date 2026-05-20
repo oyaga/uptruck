@@ -37,15 +37,16 @@ const fmtRel = (iso: string) => {
 };
 
 const ICONS: Record<string, typeof Clock> = {
-  cotacao_pendente: Clock,
-  cotacao_aprovada: CheckCircle2,
+  cotacao_pendente:  Clock,
+  cotacao_aprovada:  CheckCircle2,
   cotacao_reprovada: XCircle,
 };
 
-const COLORS: Record<string, string> = {
-  cotacao_pendente: "text-yellow-700",
-  cotacao_aprovada: "text-emerald-700",
-  cotacao_reprovada: "text-red-700",
+/** Map notification type → UT token color */
+const TYPE_COLOR: Record<string, string> = {
+  cotacao_pendente:  "var(--ut-pending-fg)",
+  cotacao_aprovada:  "var(--ut-success-fg)",
+  cotacao_reprovada: "var(--ut-danger-fg)",
 };
 
 export default function NotificationBell() {
@@ -62,7 +63,7 @@ export default function NotificationBell() {
   const router = useRouter();
   const popRef = useRef<HTMLDivElement>(null);
 
-  // Fecha ao clicar fora
+  // Close on outside click
   useEffect(() => {
     if (!open) return;
     const onClick = (e: MouseEvent) => {
@@ -84,30 +85,110 @@ export default function NotificationBell() {
 
   return (
     <div className="relative" ref={popRef}>
+      {/* Bell button */}
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="relative ml-1 inline-flex h-8 w-8 items-center justify-center rounded-md text-gray-600 hover:bg-gray-200 hover:text-gray-900"
+        style={{
+          position: "relative",
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          width: 32,
+          height: 32,
+          borderRadius: "var(--ut-radius-sm)",
+          background: "transparent",
+          border: 0,
+          cursor: "pointer",
+          color: "var(--ut-n-400)",
+          transition: "background var(--ut-dur-fast) var(--ut-ease), color var(--ut-dur-fast) var(--ut-ease)",
+        }}
+        onMouseEnter={(e) => {
+          (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.08)";
+          (e.currentTarget as HTMLButtonElement).style.color = "var(--ut-white)";
+        }}
+        onMouseLeave={(e) => {
+          (e.currentTarget as HTMLButtonElement).style.background = "transparent";
+          (e.currentTarget as HTMLButtonElement).style.color = "var(--ut-n-400)";
+        }}
         aria-label={`Notificações${unread > 0 ? ` (${unread} não lidas)` : ""}`}
         title={connected ? "Notificações ao vivo" : "Reconectando..."}
       >
         <Bell size={16} />
+
+        {/* Unread badge — yellow pill */}
         {unread > 0 && (
-          <span className="absolute -right-1 -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold leading-none text-white">
+          <span
+            style={{
+              position: "absolute",
+              top: -2,
+              right: -2,
+              minWidth: 16,
+              height: 16,
+              borderRadius: "var(--ut-radius-pill)",
+              background: "var(--ut-yellow)",
+              color: "var(--ut-black)",
+              fontSize: 10,
+              fontWeight: 800,
+              lineHeight: "16px",
+              textAlign: "center",
+              padding: "0 3px",
+              fontFamily: "var(--ut-font-sans)",
+            }}
+          >
             {unread > 99 ? "99+" : unread}
           </span>
         )}
+
+        {/* Offline dot */}
         {!connected && (
-          <span className="absolute bottom-0 right-0 h-1.5 w-1.5 rounded-full bg-gray-400" />
+          <span
+            style={{
+              position: "absolute",
+              bottom: 2,
+              right: 2,
+              width: 6,
+              height: 6,
+              borderRadius: "50%",
+              background: "var(--ut-n-500)",
+            }}
+          />
         )}
       </button>
 
+      {/* Dropdown popover */}
       {open && (
-        <div className="absolute right-0 top-10 z-50 w-80 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg sm:w-96">
-          <header className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
+        <div
+          style={{
+            position: "absolute",
+            right: 0,
+            top: 42,
+            zIndex: 50,
+            width: 340,
+            background: "var(--ut-bg-elevated)",
+            border: "1px solid var(--ut-border)",
+            borderRadius: "var(--ut-radius-lg)",
+            boxShadow: "var(--ut-shadow-md)",
+            overflow: "hidden",
+          }}
+          className="ut-fade-in sm:w-96"
+        >
+          {/* Popover header */}
+          <header
+            className="flex items-center justify-between px-4 py-3"
+            style={{ borderBottom: "1px solid var(--ut-border)" }}
+          >
             <div>
-              <div className="text-sm font-bold text-gray-900">Notificações</div>
-              <div className="text-[11px] text-gray-400">
+              <div
+                style={{
+                  fontSize: "var(--ut-fs-sm)",
+                  fontWeight: 700,
+                  color: "var(--ut-fg)",
+                }}
+              >
+                Notificações
+              </div>
+              <div style={{ fontSize: "var(--ut-fs-eyebrow)", color: "var(--ut-fg-faint)", marginTop: 2 }}>
                 {connected ? "tempo real ativo" : "reconectando..."}
               </div>
             </div>
@@ -115,15 +196,44 @@ export default function NotificationBell() {
               <button
                 type="button"
                 onClick={() => markAllRead()}
-                className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[12px] font-semibold text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 5,
+                  padding: "4px 8px",
+                  borderRadius: "var(--ut-radius-sm)",
+                  background: "transparent",
+                  border: 0,
+                  cursor: "pointer",
+                  fontSize: "var(--ut-fs-xs)",
+                  fontWeight: 600,
+                  color: "var(--ut-fg-muted)",
+                  fontFamily: "var(--ut-font-sans)",
+                }}
+                onMouseEnter={(e) =>
+                  ((e.currentTarget as HTMLButtonElement).style.background = "var(--ut-n-50)")
+                }
+                onMouseLeave={(e) =>
+                  ((e.currentTarget as HTMLButtonElement).style.background = "transparent")
+                }
               >
-                <CheckCheck size={13} /> Marcar todas
+                <CheckCheck size={13} />
+                Marcar todas
               </button>
             )}
           </header>
 
+          {/* Permission banners */}
           {permission === "default" && isIos() && !isStandalone() && (
-            <div className="flex items-start gap-2 border-b border-gray-100 bg-amber-50 px-4 py-2.5 text-[12px] text-amber-800">
+            <div
+              className="flex items-start gap-2 px-4 py-2.5"
+              style={{
+                borderBottom: "1px solid var(--ut-border)",
+                background: "var(--ut-pending-bg)",
+                fontSize: "var(--ut-fs-xs)",
+                color: "var(--ut-pending-fg)",
+              }}
+            >
               <Share2 size={13} className="mt-0.5 shrink-0" />
               <span>
                 Para receber notificações no iPhone, instale o app:{" "}
@@ -136,7 +246,16 @@ export default function NotificationBell() {
             <button
               type="button"
               onClick={() => requestPermission()}
-              className="flex w-full items-start gap-2 border-b border-gray-100 bg-blue-50 px-4 py-2.5 text-left text-[12px] text-blue-800 hover:bg-blue-100"
+              className="flex w-full items-start gap-2 px-4 py-2.5 text-left"
+              style={{
+                borderBottom: "1px solid var(--ut-border)",
+                background: "var(--ut-info-bg)",
+                fontSize: "var(--ut-fs-xs)",
+                color: "var(--ut-info-fg)",
+                border: 0,
+                cursor: "pointer",
+                fontFamily: "var(--ut-font-sans)",
+              }}
             >
               <Bell size={13} className="mt-0.5 shrink-0" />
               <span>
@@ -149,7 +268,16 @@ export default function NotificationBell() {
             <button
               type="button"
               onClick={() => requestPermission()}
-              className="flex w-full items-start gap-2 border-b border-gray-100 bg-blue-50 px-4 py-2.5 text-left text-[12px] text-blue-800 hover:bg-blue-100"
+              className="flex w-full items-start gap-2 px-4 py-2.5 text-left"
+              style={{
+                borderBottom: "1px solid var(--ut-border)",
+                background: "var(--ut-info-bg)",
+                fontSize: "var(--ut-fs-xs)",
+                color: "var(--ut-info-fg)",
+                border: 0,
+                cursor: "pointer",
+                fontFamily: "var(--ut-font-sans)",
+              }}
             >
               <Bell size={13} className="mt-0.5 shrink-0" />
               <span>
@@ -159,7 +287,15 @@ export default function NotificationBell() {
             </button>
           )}
           {permission === "denied" && (
-            <div className="flex items-start gap-2 border-b border-gray-100 bg-gray-50 px-4 py-2.5 text-[12px] text-gray-600">
+            <div
+              className="flex items-start gap-2 px-4 py-2.5"
+              style={{
+                borderBottom: "1px solid var(--ut-border)",
+                background: "var(--ut-n-50)",
+                fontSize: "var(--ut-fs-xs)",
+                color: "var(--ut-fg-muted)",
+              }}
+            >
               <BellOff size={13} className="mt-0.5 shrink-0" />
               <span>
                 Notificações do navegador bloqueadas. Reabilite nas
@@ -168,54 +304,91 @@ export default function NotificationBell() {
             </div>
           )}
 
-          <ul className="max-h-[60vh] overflow-y-auto">
+          {/* Notification list */}
+          <ul style={{ maxHeight: "60vh", overflowY: "auto" }}>
             {items.length === 0 ? (
-              <li className="px-4 py-10 text-center text-sm text-gray-400">
+              <li
+                className="px-4 py-10 text-center"
+                style={{ fontSize: "var(--ut-fs-sm)", color: "var(--ut-fg-faint)" }}
+              >
                 Nenhuma notificação.
               </li>
             ) : (
               items.map((n) => {
                 const Icon = ICONS[n.type] || Bell;
-                const color = COLORS[n.type] || "text-gray-600";
+                const iconColor = TYPE_COLOR[n.type] || "var(--ut-fg-muted)";
                 return (
                   <li
                     key={n.id}
-                    className={`border-b border-gray-100 last:border-b-0 ${
-                      n.read_at ? "bg-white" : "bg-blue-50/40"
-                    }`}
+                    style={{
+                      borderBottom: "1px solid var(--ut-border)",
+                      background: n.read_at ? "var(--ut-bg-elevated)" : "var(--ut-yellow-soft)",
+                    }}
                   >
                     <button
                       type="button"
                       onClick={() => handleClick(n)}
-                      className="flex w-full items-start gap-3 px-4 py-3 text-left hover:bg-gray-50"
+                      className="flex w-full items-start gap-3 px-4 py-3 text-left"
+                      style={{
+                        background: "transparent",
+                        border: 0,
+                        cursor: "pointer",
+                        fontFamily: "var(--ut-font-sans)",
+                        width: "100%",
+                      }}
+                      onMouseEnter={(e) =>
+                        ((e.currentTarget as HTMLButtonElement).style.background = "var(--ut-n-50)")
+                      }
+                      onMouseLeave={(e) =>
+                        ((e.currentTarget as HTMLButtonElement).style.background = "transparent")
+                      }
                     >
-                      <div className={`mt-0.5 ${color}`}>
-                        <Icon size={16} />
+                      <div style={{ marginTop: 2, color: iconColor, flexShrink: 0 }}>
+                        <Icon size={15} />
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-baseline justify-between gap-2">
                           <div
-                            className={`text-[13px] ${
-                              n.read_at
-                                ? "font-semibold text-gray-700"
-                                : "font-bold text-gray-900"
-                            }`}
+                            style={{
+                              fontSize: "var(--ut-fs-sm)",
+                              fontWeight: n.read_at ? 500 : 700,
+                              color: "var(--ut-fg)",
+                            }}
                           >
                             {n.title}
                           </div>
-                          <div className="shrink-0 text-[11px] text-gray-400">
+                          <div
+                            style={{
+                              flexShrink: 0,
+                              fontSize: "var(--ut-fs-eyebrow)",
+                              color: "var(--ut-fg-faint)",
+                            }}
+                          >
                             {fmtRel(n.created_at)}
                           </div>
                         </div>
                         {n.message && (
-                          <div className="mt-0.5 text-[12px] text-gray-500">
+                          <div
+                            style={{
+                              marginTop: 2,
+                              fontSize: "var(--ut-fs-xs)",
+                              color: "var(--ut-fg-muted)",
+                            }}
+                          >
                             {n.message}
                           </div>
                         )}
                       </div>
                       {!n.read_at && (
                         <div
-                          className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-blue-500"
+                          style={{
+                            marginTop: 6,
+                            width: 7,
+                            height: 7,
+                            flexShrink: 0,
+                            borderRadius: "50%",
+                            background: "var(--ut-yellow-deep)",
+                          }}
                           aria-label="Não lida"
                         />
                       )}

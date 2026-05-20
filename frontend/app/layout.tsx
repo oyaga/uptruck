@@ -90,7 +90,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="pt-BR">
-      <body className="min-h-screen bg-gray-100 text-gray-900 antialiased">
+      <body className="min-h-screen antialiased">
         {children}
         <RegisterSW />
         <InstallPWA />

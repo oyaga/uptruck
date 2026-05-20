@@ -17,22 +17,68 @@ export default function LoginPage() {
   }, [ready, user, router]);
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-gray-100 px-4">
-      <div className="w-full max-w-sm rounded-2xl border border-gray-200 bg-white p-8 shadow-sm">
-        <div className="mb-6 flex flex-col items-center gap-2">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gray-900">
-            <Truck size={18} className="text-white" />
+    <main
+      className="flex min-h-screen items-center justify-center px-4"
+      style={{ background: "var(--ut-n-50)" }}
+    >
+      <div
+        className="w-full overflow-hidden"
+        style={{
+          maxWidth: 360,
+          background: "var(--ut-bg-elevated)",
+          border: "1px solid var(--ut-border)",
+          borderRadius: "var(--ut-radius-xl)",
+          boxShadow: "var(--ut-shadow-md)",
+        }}
+      >
+        {/* Black header strip */}
+        <div
+          className="flex items-center gap-3 px-6 py-4"
+          style={{
+            background: "var(--ut-black)",
+            borderBottom: "2px solid var(--ut-yellow)",
+          }}
+        >
+          <div
+            className="ut-logo-plaque"
+            style={{ width: 36, height: 36 }}
+          >
+            <Truck size={18} color="var(--ut-black)" strokeWidth={2.5} />
           </div>
-          <div className="text-center">
-            <div className="text-base font-extrabold text-gray-900">
+          <div>
+            <div
+              style={{
+                fontFamily: "var(--ut-font-sans)",
+                fontSize: 16,
+                fontWeight: 900,
+                color: "var(--ut-white)",
+                lineHeight: 1,
+                letterSpacing: "-0.01em",
+              }}
+            >
               UpperTruck
             </div>
-            <div className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+            <div
+              style={{
+                fontFamily: "var(--ut-font-sans)",
+                fontSize: 10,
+                fontWeight: 700,
+                color: "var(--ut-yellow)",
+                textTransform: "uppercase",
+                letterSpacing: "0.14em",
+                lineHeight: 1,
+                marginTop: 3,
+              }}
+            >
               Aprovação de Fretes
             </div>
           </div>
         </div>
-        <LoginForm />
+
+        {/* Form area */}
+        <div className="px-6 py-6">
+          <LoginForm />
+        </div>
       </div>
     </main>
   );
