@@ -65,58 +65,32 @@ export default function Topbar({ pendingCount = 0 }: Props) {
 
         {/* Nav */}
         <nav className="flex items-center gap-1">
-          {/* Cotador links — hidden for admin */}
+          {/* Cotador link — hidden for admin */}
           {role !== "admin" && (
-            <>
-              <Link
-                href="/cotacao"
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 5,
-                  padding: "5px 12px",
-                  borderRadius: "var(--ut-radius-sm)",
-                  fontSize: "var(--ut-fs-sm)",
-                  fontWeight: 600,
-                  color: "var(--ut-white)",
-                  textDecoration: "none",
-                  transition: "background var(--ut-dur-fast) var(--ut-ease)",
-                }}
-                onMouseEnter={(e) =>
-                  (e.currentTarget.style.background = "rgba(255,255,255,0.08)")
-                }
-                onMouseLeave={(e) =>
-                  (e.currentTarget.style.background = "transparent")
-                }
-              >
-                <User size={13} />
-                Cotador
-              </Link>
-              <Link
-                href="/empresas"
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 5,
-                  padding: "5px 12px",
-                  borderRadius: "var(--ut-radius-sm)",
-                  fontSize: "var(--ut-fs-sm)",
-                  fontWeight: 600,
-                  color: "var(--ut-white)",
-                  textDecoration: "none",
-                  transition: "background var(--ut-dur-fast) var(--ut-ease)",
-                }}
-                onMouseEnter={(e) =>
-                  (e.currentTarget.style.background = "rgba(255,255,255,0.08)")
-                }
-                onMouseLeave={(e) =>
-                  (e.currentTarget.style.background = "transparent")
-                }
-              >
-                <Building2 size={13} />
-                Empresas
-              </Link>
-            </>
+            <Link
+              href="/cotacao"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 5,
+                padding: "5px 12px",
+                borderRadius: "var(--ut-radius-sm)",
+                fontSize: "var(--ut-fs-sm)",
+                fontWeight: 600,
+                color: "var(--ut-white)",
+                textDecoration: "none",
+                transition: "background var(--ut-dur-fast) var(--ut-ease)",
+              }}
+              onMouseEnter={(e) =>
+                (e.currentTarget.style.background = "rgba(255,255,255,0.08)")
+              }
+              onMouseLeave={(e) =>
+                (e.currentTarget.style.background = "transparent")
+              }
+            >
+              <User size={13} />
+              Cotador
+            </Link>
           )}
 
           {role === "admin" && (
@@ -156,6 +130,32 @@ export default function Topbar({ pendingCount = 0 }: Props) {
               </span>
             </Link>
           )}
+
+          {/* Empresas — disponível para cotador e admin */}
+          <Link
+            href="/empresas"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 5,
+              padding: "5px 12px",
+              borderRadius: "var(--ut-radius-sm)",
+              fontSize: "var(--ut-fs-sm)",
+              fontWeight: 600,
+              color: "var(--ut-white)",
+              textDecoration: "none",
+              transition: "background var(--ut-dur-fast) var(--ut-ease)",
+            }}
+            onMouseEnter={(e) =>
+              (e.currentTarget.style.background = "rgba(255,255,255,0.08)")
+            }
+            onMouseLeave={(e) =>
+              (e.currentTarget.style.background = "transparent")
+            }
+          >
+            <Building2 size={13} />
+            Empresas
+          </Link>
 
           {/* Notification bell */}
           <NotificationBell />
