@@ -24,6 +24,14 @@ import (
 )
 
 func seedUsers(db *gorm.DB) {
+	// Só popula os usuários padrão quando o sistema está zerado. Assim, se
+	// alguém alterar o próprio e-mail pelo perfil, o seed não recria a conta
+	// antiga com a senha default no próximo boot.
+	var total int64
+	db.Model(&models.User{}).Count(&total)
+	if total > 0 {
+		return
+	}
 	defaults := []struct {
 		Email, Name, Role, Password string
 	}{
@@ -31,11 +39,6 @@ func seedUsers(db *gorm.DB) {
 		{"cotador@freteantt.com", "Cotador", "cotador", "cotador123"},
 	}
 	for _, d := range defaults {
-		var count int64
-		db.Model(&models.User{}).Where("email = ?", d.Email).Count(&count)
-		if count > 0 {
-			continue
-		}
 		hash, err := bcrypt.GenerateFromPassword([]byte(d.Password), bcrypt.DefaultCost)
 		if err != nil {
 			log.Printf("falha ao gerar hash para %s: %v", d.Email, err)
@@ -121,6 +124,7 @@ func main() {
 
 			// auth (autenticada)
 			r.Get("/auth/me", authH.Me)
+			r.Patch("/auth/profile", authH.UpdateProfile)
 
 			// cotador
 			r.Post("/cotacoes", cotH.Create)

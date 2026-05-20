@@ -92,6 +92,95 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, u)
 }
 
+type updateProfileReq struct {
+	Name            string `json:"name"`
+	Email           string `json:"email"`
+	CurrentPassword string `json:"current_password"`
+	NewPassword     string `json:"new_password"`
+}
+
+// UpdateProfile permite o usuário logado alterar o próprio nome, e-mail e
+// senha. Alterações sensíveis (e-mail ou senha) exigem a senha atual.
+func (h *AuthHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
+	ctxUser, ok := mw.FromContext(r.Context())
+	if !ok {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "não autenticado"})
+		return
+	}
+	var body updateProfileReq
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "payload inválido"})
+		return
+	}
+
+	var u models.User
+	if err := h.DB.First(&u, ctxUser.ID).Error; err != nil {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "usuário não encontrado"})
+		return
+	}
+
+	name := strings.TrimSpace(body.Name)
+	if name == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "nome é obrigatório"})
+		return
+	}
+	email := strings.ToLower(strings.TrimSpace(body.Email))
+	if email == "" || !strings.Contains(email, "@") {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "e-mail inválido"})
+		return
+	}
+
+	emailChanged := email != u.Email
+	wantsNewPassword := body.NewPassword != ""
+
+	// E-mail e senha são sensíveis: confirmam com a senha atual.
+	if emailChanged || wantsNewPassword {
+		if body.CurrentPassword == "" {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "informe a senha atual para confirmar a alteração"})
+			return
+		}
+		if err := bcrypt.CompareHashAndPassword([]byte(u.PasswordHash), []byte(body.CurrentPassword)); err != nil {
+			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "senha atual incorreta"})
+			return
+		}
+	}
+
+	if emailChanged {
+		var count int64
+		h.DB.Model(&models.User{}).Where("email = ? AND id <> ?", email, u.ID).Count(&count)
+		if count > 0 {
+			writeJSON(w, http.StatusConflict, map[string]string{"error": "este e-mail já está em uso"})
+			return
+		}
+	}
+
+	if wantsNewPassword {
+		if len(body.NewPassword) < 6 {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "a nova senha deve ter ao menos 6 caracteres"})
+			return
+		}
+		hash, err := bcrypt.GenerateFromPassword([]byte(body.NewPassword), bcrypt.DefaultCost)
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "falha ao processar a senha"})
+			return
+		}
+		u.PasswordHash = string(hash)
+	}
+
+	u.Name = name
+	u.Email = email
+	if err := h.DB.Save(&u).Error; err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "falha ao salvar o perfil"})
+		return
+	}
+
+	// Reemite o token/cookie para refletir o e-mail atualizado nas claims.
+	if tok, err := auth.Sign(u.ID, u.Role, u.Email); err == nil {
+		setAuthCookie(w, tok)
+	}
+	writeJSON(w, http.StatusOK, u)
+}
+
 func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     cookieName,

@@ -141,6 +141,13 @@ export const api = {
   // quando o frontend (especialmente PWA) abre sem localStorage.
   me: () => req<ApiUser>("GET", "/api/auth/me"),
 
+  updateProfile: (body: {
+    name: string;
+    email: string;
+    current_password?: string;
+    new_password?: string;
+  }) => req<ApiUser>("PATCH", "/api/auth/profile", { body }),
+
   logout: () => req<{ ok: boolean }>("POST", "/api/auth/logout"),
 
   listMine: () => req<CotacaoApi[]>("GET", "/api/cotacoes"),
