@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import type { CotacaoApi } from "@/lib/api";
 import { fmt, UNITIZACOES, VEI } from "@/lib/antt";
+import { empresaLabel } from "@/lib/empresa";
 import StatusBadge from "./StatusBadge";
 
 interface Props {
@@ -40,6 +41,23 @@ export default function QuoteCard({ q, isAdmin, onApprove, onReject }: Props) {
     UNITIZACOES.find((u) => u.value === q.unitizacao)?.label ||
     q.unitizacao ||
     "—";
+
+  const rotaRows: [string, string][] = [
+    [
+      "Origem",
+      `${q.cep_ori ? q.cep_ori + " · " : ""}${q.uf_ori}/${q.cidade_ori}${q.bairro_ori ? " — " + q.bairro_ori : ""}`,
+    ],
+  ];
+  if (q.empresa_ori)
+    rotaRows.push(["Empresa (Coleta)", empresaLabel(q.empresa_ori)]);
+  rotaRows.push([
+    "Destino",
+    `${q.cep_des ? q.cep_des + " · " : ""}${q.uf_des}/${q.cidade_des}${q.bairro_des ? " — " + q.bairro_des : ""}`,
+  ]);
+  if (q.empresa_des)
+    rotaRows.push(["Empresa (Entrega)", empresaLabel(q.empresa_des)]);
+  rotaRows.push(["Distância", `${q.distancia_km} km`]);
+  rotaRows.push(["Veículo", VEI[q.veiculo as keyof typeof VEI]?.l || q.veiculo]);
 
   return (
     <div className="mb-2 overflow-hidden rounded-xl border border-gray-200 bg-white">
@@ -89,18 +107,7 @@ export default function QuoteCard({ q, isAdmin, onApprove, onReject }: Props) {
               Rota
             </div>
             <div className="grid grid-cols-1 gap-y-1.5 text-xs sm:grid-cols-2 sm:gap-x-5">
-              {[
-                [
-                  "Origem",
-                  `${q.cep_ori ? q.cep_ori + " · " : ""}${q.uf_ori}/${q.cidade_ori}${q.bairro_ori ? " — " + q.bairro_ori : ""}`,
-                ],
-                [
-                  "Destino",
-                  `${q.cep_des ? q.cep_des + " · " : ""}${q.uf_des}/${q.cidade_des}${q.bairro_des ? " — " + q.bairro_des : ""}`,
-                ],
-                ["Distância", `${q.distancia_km} km`],
-                ["Veículo", VEI[q.veiculo as keyof typeof VEI]?.l || q.veiculo],
-              ].map(([l, v]) => (
+              {rotaRows.map(([l, v]) => (
                 <div key={l}>
                   <span className="text-gray-400">{l}: </span>
                   <span className="font-semibold text-gray-700">{v}</span>

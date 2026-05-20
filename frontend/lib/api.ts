@@ -24,6 +24,31 @@ export interface NotificacaoApi {
   created_at: string;
 }
 
+export interface EmpresaApi {
+  id: number;
+  cnpj: string;
+  razao_social: string;
+  nome_fantasia?: string;
+  cep?: string;
+  logradouro?: string;
+  numero?: string;
+  complemento?: string;
+  bairro?: string;
+  cidade: string;
+  uf: string;
+  telefone?: string;
+  email?: string;
+  situacao?: string;
+  created_by?: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export type EmpresaInput = Omit<
+  EmpresaApi,
+  "id" | "created_by" | "created_at" | "updated_at"
+>;
+
 export interface CotacaoApi {
   id: number;
   status: "Aguardando" | "Aprovada" | "Reprovada";
@@ -53,6 +78,10 @@ export interface CotacaoApi {
   approved_by?: number;
   approved_at?: string;
   created_by?: number;
+  empresa_ori_id?: number;
+  empresa_des_id?: number;
+  empresa_ori?: EmpresaApi;
+  empresa_des?: EmpresaApi;
 }
 
 export class ApiError extends Error {
@@ -134,6 +163,24 @@ export const api = {
     req<CotacaoApi>("PATCH", `/api/admin/cotacoes/${id}/reprovar`, {
       body: { comment },
     }),
+
+  // ── Empresas ──────────────────────────────────────────────────────────
+  listEmpresas: (q?: string) =>
+    req<EmpresaApi[]>(
+      "GET",
+      `/api/empresas${q ? `?q=${encodeURIComponent(q)}` : ""}`,
+    ),
+
+  getEmpresa: (id: number) => req<EmpresaApi>("GET", `/api/empresas/${id}`),
+
+  createEmpresa: (body: EmpresaInput) =>
+    req<EmpresaApi>("POST", "/api/empresas", { body }),
+
+  updateEmpresa: (id: number, body: EmpresaInput) =>
+    req<EmpresaApi>("PUT", `/api/empresas/${id}`, { body }),
+
+  deleteEmpresa: (id: number) =>
+    req<{ ok: boolean }>("DELETE", `/api/empresas/${id}`),
 
   // ── Notificações ───────────────────────────────────────────────────────
   listNotifications: () =>

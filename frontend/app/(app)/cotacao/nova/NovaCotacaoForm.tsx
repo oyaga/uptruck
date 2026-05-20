@@ -3,9 +3,10 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, Lightbulb, MapPin, Package } from "lucide-react";
-import { calcMin, fmt, suggestVeiculoByPeso, VEI } from "@/lib/antt";
-import { api, ApiError } from "@/lib/api";
+import { calcMin, fmt, fmtCep, suggestVeiculoByPeso, VEI } from "@/lib/antt";
+import { api, ApiError, type EmpresaApi } from "@/lib/api";
 import CepBlock from "@/components/cotacao/CepBlock";
+import EmpresaSelect from "@/components/cotacao/EmpresaSelect";
 import AnttCalculator from "@/components/cotacao/AnttCalculator";
 import EmbalagemSelect from "@/components/cotacao/EmbalagemSelect";
 import UnitizacaoSelect from "@/components/cotacao/UnitizacaoSelect";
@@ -38,6 +39,8 @@ const empty = {
   categoria: "Geral",
   distancia: "",
   valorSugerido: "",
+  empresaOriId: 0,
+  empresaDesId: 0,
 };
 
 export default function NovaCotacaoForm() {
@@ -47,6 +50,36 @@ export default function NovaCotacaoForm() {
   const [submitting, setSubmitting] = useState(false);
   const set = <K extends keyof typeof empty>(k: K, v: typeof empty[K]) =>
     setF((p) => ({ ...p, [k]: v }));
+
+  // Ao escolher uma empresa cadastrada, pré-preenche o endereço daquele lado
+  // (coleta = origem, entrega = destino) — evita redigitar dados já salvos.
+  const pickEmpresaOri = (e: EmpresaApi | null) =>
+    setF((p) =>
+      e
+        ? {
+            ...p,
+            empresaOriId: e.id,
+            cepOri: e.cep ? fmtCep(e.cep) : p.cepOri,
+            ufOri: e.uf || p.ufOri,
+            cidOri: e.cidade || p.cidOri,
+            bairroOri: e.bairro || p.bairroOri,
+          }
+        : { ...p, empresaOriId: 0 },
+    );
+
+  const pickEmpresaDes = (e: EmpresaApi | null) =>
+    setF((p) =>
+      e
+        ? {
+            ...p,
+            empresaDesId: e.id,
+            cepDes: e.cep ? fmtCep(e.cep) : p.cepDes,
+            ufDes: e.uf || p.ufDes,
+            cidDes: e.cidade || p.cidDes,
+            bairroDes: e.bairro || p.bairroDes,
+          }
+        : { ...p, empresaDesId: 0 },
+    );
 
   const min = useMemo(
     () => calcMin(f.veiculo, f.distancia, f.categoria),
@@ -120,6 +153,8 @@ export default function NovaCotacaoForm() {
         veiculo: f.veiculo,
         categoria: f.categoria,
         valor_sugerido: sug,
+        empresa_ori_id: f.empresaOriId || undefined,
+        empresa_des_id: f.empresaDesId || undefined,
       });
       router.replace("/cotacao?created=1");
       router.refresh();
@@ -148,6 +183,13 @@ export default function NovaCotacaoForm() {
             <p className="mb-3 border-b border-gray-100 pb-2 text-[13px] font-bold text-gray-700">
               Origem
             </p>
+            <div className="mb-2.5">
+              <EmpresaSelect
+                label="Empresa (Coleta)"
+                value={f.empresaOriId}
+                onSelect={pickEmpresaOri}
+              />
+            </div>
             <CepBlock
               prefix="ori"
               cep={f.cepOri}
@@ -164,6 +206,13 @@ export default function NovaCotacaoForm() {
             <p className="mb-3 border-b border-gray-100 pb-2 text-[13px] font-bold text-gray-700">
               Destino
             </p>
+            <div className="mb-2.5">
+              <EmpresaSelect
+                label="Empresa (Entrega)"
+                value={f.empresaDesId}
+                onSelect={pickEmpresaDes}
+              />
+            </div>
             <CepBlock
               prefix="des"
               cep={f.cepDes}

@@ -41,6 +41,13 @@ type Cotacao struct {
 
 	// Autor
 	CreatedBy *uint `gorm:"column:created_by" json:"created_by,omitempty"`
+
+	// Empresas vinculadas — opcional. Preenchidas quando o cotador escolhe
+	// um cadastro salvo para a coleta (origem) e/ou a entrega (destino).
+	EmpresaOriID *uint    `gorm:"column:empresa_ori_id"   json:"empresa_ori_id,omitempty"`
+	EmpresaOri   *Empresa `gorm:"foreignKey:EmpresaOriID" json:"empresa_ori,omitempty"`
+	EmpresaDesID *uint    `gorm:"column:empresa_des_id"   json:"empresa_des_id,omitempty"`
+	EmpresaDes   *Empresa `gorm:"foreignKey:EmpresaDesID" json:"empresa_des,omitempty"`
 }
 
 func (Cotacao) TableName() string { return "cotacoes" }

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Settings, Truck, User } from "lucide-react";
+import { Building2, Settings, Truck, User } from "lucide-react";
 import { LogoutButton } from "./LogoutButton";
 import NotificationBell from "@/components/notify/NotificationBell";
 import { useSession } from "@/lib/session";
@@ -65,32 +65,58 @@ export default function Topbar({ pendingCount = 0 }: Props) {
 
         {/* Nav */}
         <nav className="flex items-center gap-1">
-          {/* Cotador link — hidden for admin */}
+          {/* Cotador links — hidden for admin */}
           {role !== "admin" && (
-            <Link
-              href="/cotacao"
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 5,
-                padding: "5px 12px",
-                borderRadius: "var(--ut-radius-sm)",
-                fontSize: "var(--ut-fs-sm)",
-                fontWeight: 600,
-                color: "var(--ut-white)",
-                textDecoration: "none",
-                transition: "background var(--ut-dur-fast) var(--ut-ease)",
-              }}
-              onMouseEnter={(e) =>
-                (e.currentTarget.style.background = "rgba(255,255,255,0.08)")
-              }
-              onMouseLeave={(e) =>
-                (e.currentTarget.style.background = "transparent")
-              }
-            >
-              <User size={13} />
-              Cotador
-            </Link>
+            <>
+              <Link
+                href="/cotacao"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 5,
+                  padding: "5px 12px",
+                  borderRadius: "var(--ut-radius-sm)",
+                  fontSize: "var(--ut-fs-sm)",
+                  fontWeight: 600,
+                  color: "var(--ut-white)",
+                  textDecoration: "none",
+                  transition: "background var(--ut-dur-fast) var(--ut-ease)",
+                }}
+                onMouseEnter={(e) =>
+                  (e.currentTarget.style.background = "rgba(255,255,255,0.08)")
+                }
+                onMouseLeave={(e) =>
+                  (e.currentTarget.style.background = "transparent")
+                }
+              >
+                <User size={13} />
+                Cotador
+              </Link>
+              <Link
+                href="/empresas"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 5,
+                  padding: "5px 12px",
+                  borderRadius: "var(--ut-radius-sm)",
+                  fontSize: "var(--ut-fs-sm)",
+                  fontWeight: 600,
+                  color: "var(--ut-white)",
+                  textDecoration: "none",
+                  transition: "background var(--ut-dur-fast) var(--ut-ease)",
+                }}
+                onMouseEnter={(e) =>
+                  (e.currentTarget.style.background = "rgba(255,255,255,0.08)")
+                }
+                onMouseLeave={(e) =>
+                  (e.currentTarget.style.background = "transparent")
+                }
+              >
+                <Building2 size={13} />
+                Empresas
+              </Link>
+            </>
           )}
 
           {role === "admin" && (

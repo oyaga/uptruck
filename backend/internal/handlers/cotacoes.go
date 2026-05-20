@@ -44,6 +44,8 @@ type createCotacaoReq struct {
 	Veiculo       string  `json:"veiculo"`
 	Categoria     string  `json:"categoria"`
 	ValorSugerido float64 `json:"valor_sugerido"`
+	EmpresaOriID  *uint   `json:"empresa_ori_id"`
+	EmpresaDesID  *uint   `json:"empresa_des_id"`
 }
 
 type decisionReq struct {
@@ -126,6 +128,8 @@ func (h *CotacaoHandler) Create(w http.ResponseWriter, r *http.Request) {
 	if body.ValorNf > 0 {
 		c.ValorNf = &body.ValorNf
 	}
+	c.EmpresaOriID = h.validEmpresaID(body.EmpresaOriID)
+	c.EmpresaDesID = h.validEmpresaID(body.EmpresaDesID)
 
 	if err := h.DB.Create(&c).Error; err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "falha ao criar cotação"})
@@ -145,16 +149,31 @@ func (h *CotacaoHandler) ListMine(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var list []models.Cotacao
-	if err := h.DB.Where("created_by = ?", user.ID).Order("created_at DESC").Find(&list).Error; err != nil {
+	if err := h.DB.Preload("EmpresaOri").Preload("EmpresaDes").
+		Where("created_by = ?", user.ID).Order("created_at DESC").Find(&list).Error; err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "falha ao listar cotações"})
 		return
 	}
 	writeJSON(w, http.StatusOK, list)
 }
 
+// validEmpresaID devolve o id apenas se a empresa existir; caso contrário nil.
+// Evita gravar um vínculo quebrado se o cliente mandar um id inválido.
+func (h *CotacaoHandler) validEmpresaID(id *uint) *uint {
+	if id == nil || *id == 0 {
+		return nil
+	}
+	var n int64
+	h.DB.Model(&models.Empresa{}).Where("id = ?", *id).Count(&n)
+	if n == 0 {
+		return nil
+	}
+	return id
+}
+
 func (h *CotacaoHandler) ListAll(w http.ResponseWriter, r *http.Request) {
 	var list []models.Cotacao
-	q := h.DB.Order("created_at DESC")
+	q := h.DB.Preload("EmpresaOri").Preload("EmpresaDes").Order("created_at DESC")
 	if s := r.URL.Query().Get("status"); s != "" {
 		q = q.Where("status = ?", s)
 	}

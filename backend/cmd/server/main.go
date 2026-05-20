@@ -63,6 +63,7 @@ func main() {
 	}
 	if err := db.AutoMigrate(
 		&models.User{},
+		&models.Empresa{},
 		&models.Cotacao{},
 		&models.Notificacao{},
 		&models.PushSubscription{},
@@ -83,6 +84,7 @@ func main() {
 	cotH := &handlers.CotacaoHandler{DB: db, Broker: broker, Push: pushMgr}
 	notifH := &handlers.NotificacaoHandler{DB: db, Broker: broker}
 	pushH := &handlers.PushHandler{DB: db, Manager: pushMgr}
+	empH := &handlers.EmpresaHandler{DB: db}
 
 	r := chi.NewRouter()
 	r.Use(chimw.RequestID)
@@ -123,6 +125,13 @@ func main() {
 			// cotador
 			r.Post("/cotacoes", cotH.Create)
 			r.Get("/cotacoes", cotH.ListMine)
+
+			// empresas — cadastro reutilizável p/ coleta e entrega
+			r.Get("/empresas", empH.List)
+			r.Post("/empresas", empH.Create)
+			r.Get("/empresas/{id}", empH.Get)
+			r.Put("/empresas/{id}", empH.Update)
+			r.Delete("/empresas/{id}", empH.Delete)
 
 			// notificações (REST)
 			r.Get("/notificacoes", notifH.List)

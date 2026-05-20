@@ -5,6 +5,7 @@ backend/vendor/
 # builds
 frontend/.next/
 frontend/out/
+frontend/tsconfig.tsbuildinfo
 backend/freteantt
 backend/manager/dist/*
 !backend/manager/dist/.gitkeep
