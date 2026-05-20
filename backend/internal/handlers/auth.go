@@ -30,7 +30,12 @@ type loginResp struct {
 }
 
 const cookieName = "token"
-const cookieTTL = auth.TokenTTL // alinhado com o JWT (30 dias)
+
+// Navegadores limitam a vida de um cookie a ~400 dias, independente do que o
+// servidor pedir. O cookie é renovado a cada GET /api/auth/me (no boot do
+// app), então essa janela reinicia toda vez que o usuário abre o sistema —
+// na prática a sessão não expira para quem usa o app periodicamente.
+const cookieTTL = 400 * 24 * time.Hour
 
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var body loginReq
@@ -60,16 +65,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http.SetCookie(w, &http.Cookie{
-		Name:     cookieName,
-		Value:    tok,
-		Path:     "/",
-		HttpOnly: true,
-		Secure:   secureCookies(),
-		SameSite: http.SameSiteLaxMode,
-		Expires:  time.Now().Add(cookieTTL),
-		MaxAge:   int(cookieTTL.Seconds()),
-	})
+	setAuthCookie(w, tok)
 
 	writeJSON(w, http.StatusOK, loginResp{Token: tok, User: u})
 }
@@ -87,6 +83,11 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 	if err := h.DB.First(&u, user.ID).Error; err != nil {
 		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "usuário não encontrado"})
 		return
+	}
+	// Renova a sessão: reemite o token e o cookie a cada boot do app, para
+	// que a janela de validade reinicie sempre que o usuário abre o sistema.
+	if tok, err := auth.Sign(u.ID, u.Role, u.Email); err == nil {
+		setAuthCookie(w, tok)
 	}
 	writeJSON(w, http.StatusOK, u)
 }
@@ -110,6 +111,21 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 // HTTP (ex.: http://rastreio.uppertruck.com). Ative quando colocar TLS.
 func secureCookies() bool {
 	return strings.EqualFold(os.Getenv("COOKIE_SECURE"), "true")
+}
+
+// setAuthCookie grava o cookie de sessão (httpOnly) com o token informado.
+// Usado tanto no login quanto na renovação feita pelo /api/auth/me.
+func setAuthCookie(w http.ResponseWriter, token string) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     cookieName,
+		Value:    token,
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   secureCookies(),
+		SameSite: http.SameSiteLaxMode,
+		Expires:  time.Now().Add(cookieTTL),
+		MaxAge:   int(cookieTTL.Seconds()),
+	})
 }
 
 func writeJSON(w http.ResponseWriter, code int, v any) {

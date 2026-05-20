@@ -23,10 +23,10 @@ func secret() []byte {
 	return []byte(s)
 }
 
-// TTL do JWT — alinha com o cookie. 30 dias por padrão; útil pra evitar
-// que o usuário tenha que relogar diariamente, especialmente em PWA
-// onde a sessão tende a ser persistente.
-const TokenTTL = 30 * 24 * time.Hour
+// TTL do JWT — efetivamente permanente (10 anos). Combinado com a renovação
+// do cookie a cada boot do app (ver handler Me), a sessão não expira para
+// quem usa o sistema periodicamente: nenhum relogin de rotina é necessário.
+const TokenTTL = 10 * 365 * 24 * time.Hour
 
 func Sign(userID uint, role, email string) (string, error) {
 	now := time.Now()
