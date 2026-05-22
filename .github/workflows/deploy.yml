@@ -1,6 +1,6 @@
 # Deploy automatico do FreteANTT.
 # push na main -> build da imagem -> publica no ghcr.io -> redeploy da
-# stack freteantt (id 1) no Portainer via API.
+# stack freteantt (id 2) no Portainer via API.
 #
 # Secret necessario (ja configurado): PORTAINER_TOKEN (token ptr_... da API).
 # GITHUB_TOKEN e automatico; nenhum token de Docker Hub e necessario.
@@ -21,8 +21,8 @@ permissions:
 
 env:
   PORTAINER_URL: https://kamisama.aikanakamura.com
-  STACK_ID: 1
-  ENDPOINT_ID: 3
+  STACK_ID: 2
+  ENDPOINT_ID: 1
   IMAGE: ghcr.io/oyaga/freteantt
 
 jobs:
@@ -61,11 +61,13 @@ jobs:
         run: |
           set -euo pipefail
           API="$PORTAINER_URL/api/stacks/$STACK_ID"
+          # retry: blips de rede transitorios nao devem derrubar o deploy
+          RETRY="--retry 4 --retry-delay 10 --retry-all-errors --retry-connrefused"
 
           # Le o Env atual da stack pela API (mantem JWT_SECRET/POSTGRES_PASSWORD)
-          ENV_JSON=$(curl -fsS -H "X-API-Key: $PORTAINER_TOKEN" "$API" | jq -c '.Env')
+          ENV_JSON=$(curl -fsS $RETRY -H "X-API-Key: $PORTAINER_TOKEN" "$API" | jq -c '.Env')
           # Conteudo atual do docker-compose
-          COMPOSE=$(curl -fsS -H "X-API-Key: $PORTAINER_TOKEN" "$API/file" | jq -r '.StackFileContent')
+          COMPOSE=$(curl -fsS $RETRY -H "X-API-Key: $PORTAINER_TOKEN" "$API/file" | jq -r '.StackFileContent')
 
           # Troca apenas o IMAGE_TAG
           PAYLOAD=$(jq -n \
@@ -76,7 +78,7 @@ jobs:
               env: ($env | map(if .name == "IMAGE_TAG" then .value = $img else . end)),
               pullImage: true}')
 
-          curl -fsS -X PUT \
+          curl -fsS $RETRY -X PUT \
             -H "X-API-Key: $PORTAINER_TOKEN" \
             -H "Content-Type: application/json" \
             "$API?endpointId=$ENDPOINT_ID" \
