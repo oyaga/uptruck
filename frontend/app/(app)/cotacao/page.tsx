@@ -6,10 +6,11 @@ import { useSearchParams } from "next/navigation";
 import { FileText, Loader2, Plus, Truck, X } from "lucide-react";
 import QuoteCard from "@/components/cotacao/QuoteCard";
 import { api, type CotacaoApi } from "@/lib/api";
+import { COTACAO_STATUS } from "@/lib/cotacaoStatus";
 import { onNewNotification } from "@/lib/notify";
 import AuthGuard from "@/components/auth/AuthGuard";
 
-type StatusFilter = "all" | "Aguardando" | "Aprovada" | "Reprovada";
+type StatusFilter = "all" | (typeof COTACAO_STATUS)[number];
 
 const UF_LIST = [
   "AC","AL","AP","AM","BA","CE","DF","ES","GO","MA",
@@ -18,10 +19,8 @@ const UF_LIST = [
 ];
 
 const STATUS_OPTIONS: { key: StatusFilter; label: string }[] = [
-  { key: "all",        label: "Todos os status" },
-  { key: "Aguardando", label: "Aguardando" },
-  { key: "Aprovada",   label: "Aprovada" },
-  { key: "Reprovada",  label: "Reprovada" },
+  { key: "all", label: "Todos os status" },
+  ...COTACAO_STATUS.map((s) => ({ key: s as StatusFilter, label: s })),
 ];
 
 function MinhasCotacoes() {
@@ -49,11 +48,22 @@ function MinhasCotacoes() {
 
   useEffect(() => {
     return onNewNotification((n) => {
-      if (n.type === "cotacao_aprovada" || n.type === "cotacao_reprovada") {
-        load();
-      }
+      // Recarrega quando o admin responde/recusa uma cotação minha.
+      if (n.cotacao_id) load();
     });
   }, [load]);
+
+  const onCotadorAction = async (id: number, acao: string) => {
+    setErr("");
+    try {
+      const updated = await api.transicao(id, acao);
+      setQuotes((prev) =>
+        prev ? prev.map((q) => (q.id === id ? updated : q)) : prev,
+      );
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Falha ao atualizar a cotação.");
+    }
+  };
 
   const shown = useMemo(() => {
     if (!quotes) return [];
@@ -308,7 +318,14 @@ function MinhasCotacoes() {
           </div>
         </div>
       ) : (
-        shown.map((q) => <QuoteCard key={q.id} q={q} />)
+        shown.map((q) => (
+          <QuoteCard
+            key={q.id}
+            q={q}
+            role="cotador"
+            onCotadorAction={onCotadorAction}
+          />
+        ))
       )}
     </main>
   );

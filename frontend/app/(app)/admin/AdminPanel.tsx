@@ -4,15 +4,26 @@ import { useMemo, useState } from "react";
 import { ShieldCheck, Truck, X } from "lucide-react";
 import type { CotacaoApi } from "@/lib/api";
 import { api } from "@/lib/api";
+import { COTACAO_STATUS, statusMeta } from "@/lib/cotacaoStatus";
 import QuoteCard from "@/components/cotacao/QuoteCard";
 
-type StatusFilter = "all" | "Aguardando" | "Aprovada" | "Reprovada";
+type StatusFilter = "all" | (typeof COTACAO_STATUS)[number];
 
 const UF_LIST = [
   "AC","AL","AP","AM","BA","CE","DF","ES","GO","MA",
   "MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN",
   "RS","RO","RR","SC","SP","SE","TO",
 ];
+
+const VARIANT_COLORS: Record<
+  string,
+  { bg: string; fg: string; line: string }
+> = {
+  pending: { bg: "var(--ut-pending-bg)", fg: "var(--ut-pending-fg)", line: "var(--ut-pending-line)" },
+  info: { bg: "var(--ut-info-bg)", fg: "var(--ut-info-fg)", line: "var(--ut-info-line)" },
+  approved: { bg: "var(--ut-success-bg)", fg: "var(--ut-success-fg)", line: "var(--ut-success-line)" },
+  rejected: { bg: "var(--ut-danger-bg)", fg: "var(--ut-danger-fg)", line: "var(--ut-danger-line)" },
+};
 
 export default function AdminPanel({
   initialQuotes,
@@ -27,43 +38,25 @@ export default function AdminPanel({
   const [dateTo, setDateTo]       = useState("");
   const [err, setErr]             = useState("");
 
-  const pending  = quotes.filter((q) => q.status === "Aguardando");
-  const approved = quotes.filter((q) => q.status === "Aprovada");
-  const rejected = quotes.filter((q) => q.status === "Reprovada");
+  const countByStatus = useMemo(() => {
+    const m: Record<string, number> = {};
+    for (const q of quotes) m[q.status] = (m[q.status] || 0) + 1;
+    return m;
+  }, [quotes]);
 
-  const statButtons = [
-    {
-      key: "all" as StatusFilter,
-      label: "Todos",
-      value: quotes.length,
-      bg: "var(--ut-info-bg)",
-      fg: "var(--ut-info-fg)",
-      border: "var(--ut-info-line)",
-    },
-    {
-      key: "Aguardando" as StatusFilter,
-      label: "Aguardando",
-      value: pending.length,
-      bg: "var(--ut-pending-bg)",
-      fg: "var(--ut-pending-fg)",
-      border: "var(--ut-pending-line)",
-    },
-    {
-      key: "Aprovada" as StatusFilter,
-      label: "Aprovadas",
-      value: approved.length,
-      bg: "var(--ut-success-bg)",
-      fg: "var(--ut-success-fg)",
-      border: "var(--ut-success-line)",
-    },
-    {
-      key: "Reprovada" as StatusFilter,
-      label: "Reprovadas",
-      value: rejected.length,
-      bg: "var(--ut-danger-bg)",
-      fg: "var(--ut-danger-fg)",
-      border: "var(--ut-danger-line)",
-    },
+  // Botões de filtro: "Todos" + um por status.
+  const filterButtons: {
+    key: StatusFilter;
+    label: string;
+    count: number;
+    fg: string;
+    bg: string;
+  }[] = [
+    { key: "all", label: "Todos", count: quotes.length, fg: VARIANT_COLORS.info.fg, bg: VARIANT_COLORS.info.bg },
+    ...COTACAO_STATUS.map((s) => {
+      const c = VARIANT_COLORS[statusMeta(s).variant];
+      return { key: s as StatusFilter, label: s, count: countByStatus[s] || 0, fg: c.fg, bg: c.bg };
+    }),
   ];
 
   const shown = useMemo(() => {
@@ -79,71 +72,60 @@ export default function AdminPanel({
 
   const hasSecondaryFilters = ufOri || ufDes || dateFrom || dateTo;
 
-  const decide = async (
-    id: number,
-    action: "aprovar" | "reprovar",
-    comment: string,
-  ) => {
+  const respond = async (id: number, comment: string, valor: number) => {
     setErr("");
     try {
-      const updated =
-        action === "aprovar"
-          ? await api.aprovar(id, comment)
-          : await api.reprovar(id, comment);
+      const updated = await api.responder(id, comment, valor);
       setQuotes((prev) => prev.map((q) => (q.id === id ? updated : q)));
     } catch (e) {
-      setErr(e instanceof Error ? e.message : "Falha ao atualizar cotação.");
+      setErr(e instanceof Error ? e.message : "Falha ao responder a cotação.");
+    }
+  };
+
+  const reject = async (id: number, comment: string) => {
+    setErr("");
+    try {
+      const updated = await api.recusarCotacao(id, comment);
+      setQuotes((prev) => prev.map((q) => (q.id === id ? updated : q)));
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Falha ao recusar a cotação.");
     }
   };
 
   return (
     <div>
-      {/* Interactive stat / status filter buttons */}
-      <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {statButtons.map((s) => {
-          const active = statusFilter === s.key;
+      {/* Status filter chips */}
+      <div className="mb-4 flex flex-wrap gap-2">
+        {filterButtons.map((b) => {
+          const active = statusFilter === b.key;
           return (
             <button
-              key={s.key}
+              key={b.key}
               type="button"
-              onClick={() => setStatus(active && s.key !== "all" ? "all" : s.key)}
-              className="rounded-xl border px-4 py-3 text-left"
+              onClick={() => setStatus(active ? "all" : b.key)}
+              className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5"
               style={{
-                background: s.bg,
-                borderColor: active ? s.fg : s.border,
+                background: active ? b.bg : "var(--ut-bg-elevated)",
+                borderColor: active ? b.fg : "var(--ut-border)",
+                color: active ? b.fg : "var(--ut-fg-muted)",
+                fontSize: "var(--ut-fs-sm)",
+                fontWeight: 600,
                 cursor: "pointer",
-                outline: active ? `2px solid ${s.fg}` : "none",
-                outlineOffset: 2,
-                transition: "outline var(--ut-dur-fast) var(--ut-ease), border-color var(--ut-dur-fast) var(--ut-ease)",
                 fontFamily: "var(--ut-font-sans)",
+                transition: "all var(--ut-dur-fast) var(--ut-ease)",
               }}
             >
-              <div className="ut-eyebrow mb-1" style={{ color: s.fg }}>
-                {s.label}
-              </div>
-              <div
+              <span
                 style={{
-                  fontSize: "var(--ut-fs-2xl)",
-                  fontWeight: 800,
-                  color: s.fg,
-                  lineHeight: 1,
-                  letterSpacing: "-0.03em",
+                  width: 7,
+                  height: 7,
+                  borderRadius: "50%",
+                  background: b.fg,
+                  flexShrink: 0,
                 }}
-              >
-                {s.value}
-              </div>
-              {active && s.key !== "all" && (
-                <div
-                  style={{
-                    fontSize: "var(--ut-fs-eyebrow)",
-                    color: s.fg,
-                    marginTop: 4,
-                    opacity: 0.7,
-                  }}
-                >
-                  filtro ativo · clique para limpar
-                </div>
-              )}
+              />
+              {b.label}
+              <span style={{ fontWeight: 800 }}>{b.count}</span>
             </button>
           );
         })}
@@ -158,10 +140,7 @@ export default function AdminPanel({
         }}
       >
         <div>
-          <label
-            className="ut-label"
-            style={{ display: "block", marginBottom: 4 }}
-          >
+          <label className="ut-label" style={{ display: "block", marginBottom: 4 }}>
             UF Coleta
           </label>
           <select
@@ -178,10 +157,7 @@ export default function AdminPanel({
         </div>
 
         <div>
-          <label
-            className="ut-label"
-            style={{ display: "block", marginBottom: 4 }}
-          >
+          <label className="ut-label" style={{ display: "block", marginBottom: 4 }}>
             UF Entrega
           </label>
           <select
@@ -198,10 +174,7 @@ export default function AdminPanel({
         </div>
 
         <div>
-          <label
-            className="ut-label"
-            style={{ display: "block", marginBottom: 4 }}
-          >
+          <label className="ut-label" style={{ display: "block", marginBottom: 4 }}>
             Data de
           </label>
           <input
@@ -214,10 +187,7 @@ export default function AdminPanel({
         </div>
 
         <div>
-          <label
-            className="ut-label"
-            style={{ display: "block", marginBottom: 4 }}
-          >
+          <label className="ut-label" style={{ display: "block", marginBottom: 4 }}>
             Data até
           </label>
           <input
@@ -300,17 +270,17 @@ export default function AdminPanel({
                   marginBottom: 4,
                 }}
               >
-                {statusFilter === "Aguardando"
-                  ? "Nenhuma cotação aguardando"
+                {statusFilter === "Em Análise"
+                  ? "Nenhuma cotação em análise"
                   : "Nenhuma cotação encontrada"}
               </div>
               <div style={{ fontSize: "var(--ut-fs-sm)", color: "var(--ut-fg-muted)" }}>
-                {statusFilter === "Aguardando"
-                  ? "Todas as cotações já foram avaliadas."
+                {statusFilter === "Em Análise"
+                  ? "Todas as cotações já foram respondidas."
                   : "Tente ajustar os filtros."}
               </div>
             </div>
-            {statusFilter === "Aguardando" && !hasSecondaryFilters && (
+            {statusFilter === "Em Análise" && !hasSecondaryFilters && (
               <div
                 className="flex items-center gap-1.5 mt-1"
                 style={{
@@ -330,9 +300,9 @@ export default function AdminPanel({
           <QuoteCard
             key={q.id}
             q={q}
-            isAdmin
-            onApprove={(id, c) => decide(id, "aprovar", c)}
-            onReject={(id, c) => decide(id, "reprovar", c)}
+            role="admin"
+            onAdminRespond={respond}
+            onAdminReject={reject}
           />
         ))
       )}

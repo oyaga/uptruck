@@ -93,6 +93,19 @@ func renameLegacySeedUsers(db *gorm.DB) {
 	}
 }
 
+// migrateCotacaoStatus converte os status antigos para o novo fluxo.
+// Idempotente: depois de convertidos, os status antigos não existem mais.
+func migrateCotacaoStatus(db *gorm.DB) {
+	conversoes := map[string]string{
+		"Aguardando": "Em Análise",
+		"Aprovada":   "Fechada",
+		"Reprovada":  "Recusada",
+	}
+	for antigo, novo := range conversoes {
+		db.Model(&models.Cotacao{}).Where("status = ?", antigo).Update("status", novo)
+	}
+}
+
 func main() {
 	_ = godotenv.Load()
 
@@ -116,6 +129,7 @@ func main() {
 	}
 	seedUsers(db)
 	renameLegacySeedUsers(db)
+	migrateCotacaoStatus(db)
 
 	broker := notify.NewBroker()
 	pushMgr, err := push.NewManager(db)
@@ -170,6 +184,7 @@ func main() {
 			// cotador
 			r.Post("/cotacoes", cotH.Create)
 			r.Get("/cotacoes", cotH.ListMine)
+			r.Patch("/cotacoes/{id}/transicao", cotH.Transicao)
 
 			// empresas — cadastro reutilizável p/ coleta e entrega
 			r.Get("/empresas", empH.List)
@@ -192,8 +207,8 @@ func main() {
 			r.Group(func(r chi.Router) {
 				r.Use(mw.RequireRole("admin"))
 				r.Get("/admin/cotacoes", cotH.ListAll)
-				r.Patch("/admin/cotacoes/{id}/aprovar", cotH.Aprovar)
-				r.Patch("/admin/cotacoes/{id}/reprovar", cotH.Reprovar)
+				r.Patch("/admin/cotacoes/{id}/responder", cotH.Responder)
+				r.Patch("/admin/cotacoes/{id}/recusar", cotH.Recusar)
 			})
 		})
 

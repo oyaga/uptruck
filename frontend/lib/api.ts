@@ -2,6 +2,8 @@
 // pelo mesmo binário (mesmo origin) — o cookie httpOnly viaja automaticamente.
 // Em dev, o cookie é setado pelo Go via Set-Cookie e o navegador o reenvia.
 
+import type { CotacaoStatus } from "./cotacaoStatus";
+
 export interface ApiUser {
   id: number;
   email: string;
@@ -51,7 +53,7 @@ export type EmpresaInput = Omit<
 
 export interface CotacaoApi {
   id: number;
-  status: "Aguardando" | "Aprovada" | "Reprovada";
+  status: CotacaoStatus;
   created_at: string;
   updated_at: string;
   cep_ori?: string;
@@ -161,14 +163,22 @@ export const api = {
       `/api/admin/cotacoes${status ? `?status=${encodeURIComponent(status)}` : ""}`,
     ),
 
-  aprovar: (id: number, comment: string) =>
-    req<CotacaoApi>("PATCH", `/api/admin/cotacoes/${id}/aprovar`, {
+  // Admin responde a cotação com o valor corrigido (Em Análise → Respondida).
+  responder: (id: number, comment: string, valorSugerido: number) =>
+    req<CotacaoApi>("PATCH", `/api/admin/cotacoes/${id}/responder`, {
+      body: { comment, valor_sugerido: valorSugerido },
+    }),
+
+  // Admin recusa a cotação (Em Análise → Recusada).
+  recusarCotacao: (id: number, comment: string) =>
+    req<CotacaoApi>("PATCH", `/api/admin/cotacoes/${id}/recusar`, {
       body: { comment },
     }),
 
-  reprovar: (id: number, comment: string) =>
-    req<CotacaoApi>("PATCH", `/api/admin/cotacoes/${id}/reprovar`, {
-      body: { comment },
+  // Cotador avança a cotação pelas etapas seguintes do fluxo.
+  transicao: (id: number, acao: string) =>
+    req<CotacaoApi>("PATCH", `/api/cotacoes/${id}/transicao`, {
+      body: { acao },
     }),
 
   // ── Empresas ──────────────────────────────────────────────────────────

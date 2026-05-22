@@ -25,10 +25,10 @@ function AdminInner() {
     load();
   }, [load]);
 
-  // Auto-refresh quando uma nova cotação pendente chegar via SSE
+  // Auto-refresh quando uma cotação for criada ou avançar de etapa
   useEffect(() => {
     return onNewNotification((n) => {
-      if (n.type === "cotacao_pendente") load();
+      if (n.cotacao_id) load();
     });
   }, [load]);
 

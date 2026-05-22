@@ -8,6 +8,7 @@ import {
   CheckCheck,
   CheckCircle2,
   Clock,
+  RefreshCw,
   Share2,
   XCircle,
 } from "lucide-react";
@@ -37,17 +38,29 @@ const fmtRel = (iso: string) => {
 };
 
 const ICONS: Record<string, typeof Clock> = {
-  cotacao_pendente:  Clock,
-  cotacao_aprovada:  CheckCircle2,
-  cotacao_reprovada: XCircle,
+  cotacao_nova:       Clock,
+  cotacao_respondida: CheckCircle2,
+  cotacao_atualizada: RefreshCw,
+  cotacao_recusada:   XCircle,
+  // tipos legados
+  cotacao_pendente:   Clock,
+  cotacao_aprovada:   CheckCircle2,
+  cotacao_reprovada:  XCircle,
 };
 
 /** Map notification type → UT token color */
 const TYPE_COLOR: Record<string, string> = {
-  cotacao_pendente:  "var(--ut-pending-fg)",
-  cotacao_aprovada:  "var(--ut-success-fg)",
-  cotacao_reprovada: "var(--ut-danger-fg)",
+  cotacao_nova:       "var(--ut-pending-fg)",
+  cotacao_respondida: "var(--ut-success-fg)",
+  cotacao_atualizada: "var(--ut-info-fg)",
+  cotacao_recusada:   "var(--ut-danger-fg)",
+  cotacao_pendente:   "var(--ut-pending-fg)",
+  cotacao_aprovada:   "var(--ut-success-fg)",
+  cotacao_reprovada:  "var(--ut-danger-fg)",
 };
+
+// Tipos de notificação destinados ao admin — clicar leva ao /admin.
+const ADMIN_TYPES = ["cotacao_nova", "cotacao_atualizada", "cotacao_pendente"];
 
 export default function NotificationBell() {
   const {
@@ -79,7 +92,7 @@ export default function NotificationBell() {
     if (!n.read_at) markRead(n.id);
     setOpen(false);
     if (n.cotacao_id) {
-      router.push(n.type === "cotacao_pendente" ? "/admin" : "/cotacao");
+      router.push(ADMIN_TYPES.includes(n.type) ? "/admin" : "/cotacao");
     }
   };
 

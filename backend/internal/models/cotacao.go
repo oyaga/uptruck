@@ -4,7 +4,7 @@ import "time"
 
 type Cotacao struct {
 	ID        uint      `gorm:"primaryKey"                       json:"id"`
-	Status    string    `gorm:"size:20;not null;default:Aguardando" json:"status"`
+	Status    string    `gorm:"size:40;not null" json:"status"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 

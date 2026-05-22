@@ -7,21 +7,34 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronUp,
+  Info,
   MapPin,
   Package,
+  Send,
   Truck,
   XCircle,
 } from "lucide-react";
 import type { CotacaoApi } from "@/lib/api";
 import { fmt, UNITIZACOES, VEI } from "@/lib/antt";
 import { empresaLabel } from "@/lib/empresa";
+import {
+  COTADOR_ACTIONS,
+  statusMeta,
+  STATUS_HINT,
+  type CotadorAction,
+} from "@/lib/cotacaoStatus";
+import CurrencyInput, {
+  centsToNumber,
+  numberToCents,
+} from "./CurrencyInput";
 import StatusBadge from "./StatusBadge";
 
 interface Props {
   q: CotacaoApi;
-  isAdmin?: boolean;
-  onApprove?: (id: number, comment: string) => void;
-  onReject?: (id: number, comment: string) => void;
+  role: "admin" | "cotador";
+  onAdminRespond?: (id: number, comment: string, valorSugerido: number) => void;
+  onAdminReject?: (id: number, comment: string) => void;
+  onCotadorAction?: (id: number, acao: string) => void;
 }
 
 const fmtDate = (iso: string) => {
@@ -32,16 +45,18 @@ const fmtDate = (iso: string) => {
   }
 };
 
-/** Returns the accent color for the left bar by status */
-function accentColor(status: string): string {
-  if (status === "Aprovada") return "var(--ut-success-fg)";
-  if (status === "Reprovada") return "var(--ut-danger-fg)";
-  return "var(--ut-yellow)";
-}
-
-export default function QuoteCard({ q, isAdmin, onApprove, onReject }: Props) {
+export default function QuoteCard({
+  q,
+  role,
+  onAdminRespond,
+  onAdminReject,
+  onCotadorAction,
+}: Props) {
   const [open, setOpen] = useState(false);
   const [comment, setComment] = useState("");
+  const [valorCents, setValorCents] = useState(() =>
+    numberToCents(q.valor_sugerido || 0),
+  );
 
   const sug = Number(q.valor_sugerido) || 0;
   const min = Number(q.antt_min) || 0;
@@ -52,6 +67,23 @@ export default function QuoteCard({ q, isAdmin, onApprove, onReject }: Props) {
     UNITIZACOES.find((u) => u.value === q.unitizacao)?.label ||
     q.unitizacao ||
     "—";
+
+  const accent = statusMeta(q.status).accent;
+
+  // Painel de resposta do admin (só na etapa "Em Análise").
+  const adminCanRespond = role === "admin" && q.status === "Em Análise";
+  const typedValue = centsToNumber(valorCents);
+  const typedBelowFloor = typedValue > 0 && min > 0 && typedValue < min;
+
+  // Ações do cotador para o status atual.
+  const cotadorActions: CotadorAction[] =
+    role === "cotador" ? COTADOR_ACTIONS[q.status] || [] : [];
+
+  const runCotadorAction = (a: CotadorAction) => {
+    if (a.confirm && !window.confirm(a.confirm)) return;
+    onCotadorAction?.(q.id, a.acao);
+    setOpen(false);
+  };
 
   const rotaRows: [string, string][] = [
     [
@@ -70,6 +102,12 @@ export default function QuoteCard({ q, isAdmin, onApprove, onReject }: Props) {
   rotaRows.push(["Distância", `${q.distancia_km} km`]);
   rotaRows.push(["Veículo", VEI[q.veiculo as keyof typeof VEI]?.l || q.veiculo]);
 
+  const toneClass: Record<CotadorAction["tone"], string> = {
+    primary: "ut-btn-primary",
+    approve: "ut-btn-approve",
+    reject: "ut-btn-reject",
+  };
+
   return (
     <div
       className="mb-2 overflow-hidden"
@@ -86,7 +124,7 @@ export default function QuoteCard({ q, isAdmin, onApprove, onReject }: Props) {
         style={{
           width: 3,
           flexShrink: 0,
-          background: accentColor(q.status),
+          background: accent,
           borderRadius: "var(--ut-radius-lg) 0 0 var(--ut-radius-lg)",
         }}
       />
@@ -279,12 +317,7 @@ export default function QuoteCard({ q, isAdmin, onApprove, onReject }: Props) {
                 </span>
               </div>
               {margin && !belowFloor && (
-                <div
-                  style={{
-                    fontWeight: 700,
-                    color: "var(--ut-success-fg)",
-                  }}
-                >
+                <div style={{ fontWeight: 700, color: "var(--ut-success-fg)" }}>
                   +{margin}% acima do piso mínimo
                 </div>
               )}
@@ -299,7 +332,7 @@ export default function QuoteCard({ q, isAdmin, onApprove, onReject }: Props) {
               )}
             </div>
 
-            {/* Admin comment (when already decided) */}
+            {/* Admin comment */}
             {q.admin_comment && (
               <div
                 className="rounded-lg px-3 py-2.5"
@@ -314,13 +347,41 @@ export default function QuoteCard({ q, isAdmin, onApprove, onReject }: Props) {
               </div>
             )}
 
-            {/* Admin approve / reject controls */}
-            {isAdmin && q.status === "Aguardando" && (
+            {/* Status hint */}
+            {STATUS_HINT[q.status] && (
+              <div
+                className="flex items-start gap-2"
+                style={{ fontSize: "var(--ut-fs-xs)", color: "var(--ut-fg-muted)" }}
+              >
+                <Info size={13} className="mt-0.5 shrink-0" />
+                {STATUS_HINT[q.status]}
+              </div>
+            )}
+
+            {/* Admin: responder / recusar (etapa Em Análise) */}
+            {adminCanRespond && (
               <div
                 className="flex flex-col gap-2 pt-1"
                 style={{ borderTop: "1px solid var(--ut-border)" }}
               >
-                <label className="ut-label">Comentário para o cotador (opcional)</label>
+                <label className="ut-label">Valor corrigido do frete</label>
+                <CurrencyInput
+                  value={valorCents}
+                  onChange={setValorCents}
+                  placeholder="R$ 0,00"
+                />
+                {typedBelowFloor && (
+                  <div
+                    className="flex items-center gap-1.5"
+                    style={{ fontSize: "var(--ut-fs-xs)", color: "var(--ut-danger-fg)", fontWeight: 600 }}
+                  >
+                    <AlertTriangle size={12} />
+                    Valor abaixo do piso ANTT ({fmt(min)}).
+                  </div>
+                )}
+                <label className="ut-label" style={{ marginTop: 4 }}>
+                  Comentário para o cotador (opcional)
+                </label>
                 <textarea
                   className="ut-textarea"
                   value={comment}
@@ -333,26 +394,58 @@ export default function QuoteCard({ q, isAdmin, onApprove, onReject }: Props) {
                     className="ut-btn ut-btn-approve"
                     style={{ flex: 1, justifyContent: "center" }}
                     onClick={() => {
-                      onApprove?.(q.id, comment);
+                      const v = centsToNumber(valorCents);
+                      if (v <= 0) {
+                        window.alert("Informe o valor corrigido da cotação.");
+                        return;
+                      }
+                      onAdminRespond?.(q.id, comment, v);
                       setOpen(false);
                     }}
                   >
                     <CheckCircle2 size={14} />
-                    Aprovar
+                    Responder
                   </button>
                   <button
                     type="button"
                     className="ut-btn ut-btn-reject"
                     style={{ flex: 1, justifyContent: "center" }}
                     onClick={() => {
-                      onReject?.(q.id, comment);
+                      onAdminReject?.(q.id, comment);
                       setOpen(false);
                     }}
                   >
                     <XCircle size={14} />
-                    Reprovar
+                    Recusar
                   </button>
                 </div>
+              </div>
+            )}
+
+            {/* Cotador: ações de avanço do fluxo */}
+            {cotadorActions.length > 0 && (
+              <div
+                className="flex flex-col gap-2 pt-1 sm:flex-row"
+                style={{ borderTop: "1px solid var(--ut-border)" }}
+              >
+                {cotadorActions.map((a) => (
+                  <button
+                    key={a.acao}
+                    type="button"
+                    className={`ut-btn ${toneClass[a.tone]}`}
+                    style={{ flex: 1, justifyContent: "center", marginTop: 8 }}
+                    onClick={() => runCotadorAction(a)}
+                  >
+                    {a.tone === "reject" ? (
+                      <XCircle size={14} />
+                    ) : a.tone === "approve" ? (
+                      <CheckCircle2 size={14} />
+                    ) : (
+                      <Send size={14} />
+                    )}
+                    {a.label}
+                  </button>
+                ))}
               </div>
             )}
           </div>
