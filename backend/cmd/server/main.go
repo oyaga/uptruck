@@ -140,7 +140,7 @@ func main() {
 
 	authH := &handlers.AuthHandler{DB: db}
 	cotH := &handlers.CotacaoHandler{DB: db, Broker: broker, Push: pushMgr}
-	notifH := &handlers.NotificacaoHandler{DB: db, Broker: broker}
+	notifH := &handlers.NotificacaoHandler{DB: db, Broker: broker, Push: pushMgr}
 	pushH := &handlers.PushHandler{DB: db, Manager: pushMgr}
 	empH := &handlers.EmpresaHandler{DB: db}
 
@@ -209,6 +209,7 @@ func main() {
 				r.Get("/admin/cotacoes", cotH.ListAll)
 				r.Patch("/admin/cotacoes/{id}/responder", cotH.Responder)
 				r.Patch("/admin/cotacoes/{id}/recusar", cotH.Recusar)
+				r.Post("/admin/notificacoes/broadcast", notifH.Broadcast)
 			})
 		})
 

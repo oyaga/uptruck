@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	mw "freteantt/internal/middleware"
 	"freteantt/internal/models"
 	"freteantt/internal/notify"
+	"freteantt/internal/push"
 
 	"github.com/go-chi/chi/v5"
 	"gorm.io/gorm"
@@ -18,6 +20,7 @@ import (
 type NotificacaoHandler struct {
 	DB     *gorm.DB
 	Broker *notify.Broker
+	Push   *push.Manager
 }
 
 // List devolve as últimas notificações do usuário logado (default 30).
@@ -90,6 +93,64 @@ func (h *NotificacaoHandler) MarkAllRead(w http.ResponseWriter, r *http.Request)
 		Where("user_id = ? AND read_at IS NULL", user.ID).
 		Update("read_at", now)
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "updated": res.RowsAffected})
+}
+
+type broadcastReq struct {
+	Title   string `json:"title"`
+	Message string `json:"message"`
+	URL     string `json:"url,omitempty"`
+	Tag     string `json:"tag,omitempty"`
+}
+
+// Broadcast cria uma notificação para todos os usuários e dispara Web Push +
+// SSE. Uso típico: avisos operacionais do admin ("app voltou", manutenção etc.).
+// Best-effort: erros por usuário não interrompem o broadcast.
+func (h *NotificacaoHandler) Broadcast(w http.ResponseWriter, r *http.Request) {
+	var body broadcastReq
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "payload inválido"})
+		return
+	}
+	body.Title = strings.TrimSpace(body.Title)
+	body.Message = strings.TrimSpace(body.Message)
+	if body.Title == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "title obrigatório"})
+		return
+	}
+
+	var users []models.User
+	if err := h.DB.Select("id").Find(&users).Error; err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "falha ao listar usuários"})
+		return
+	}
+
+	tag := body.Tag
+	if tag == "" {
+		tag = fmt.Sprintf("broadcast-%d", time.Now().Unix())
+	}
+
+	var delivered int
+	for _, u := range users {
+		n := models.Notificacao{
+			UserID: u.ID, Type: "broadcast",
+			Title: body.Title, Message: body.Message,
+		}
+		if err := h.DB.Create(&n).Error; err != nil {
+			continue
+		}
+		delivered++
+		if h.Broker != nil {
+			h.Broker.Publish(u.ID, notify.Event{Type: "notificacao", Data: n})
+		}
+		if h.Push != nil {
+			h.Push.SendToUser(u.ID, push.Payload{
+				Title: body.Title, Message: body.Message,
+				URL: body.URL, Tag: tag,
+			})
+		}
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "delivered": delivered})
 }
 
 // Stream abre uma conexão Server-Sent Events. O navegador (EventSource)
