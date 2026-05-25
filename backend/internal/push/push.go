@@ -134,6 +134,13 @@ func (m *Manager) send(s *models.PushSubscription, payload []byte) {
 		log.Printf("webpush ok (sub %d): %d", s.ID, resp.StatusCode)
 	default:
 		body, _ := io.ReadAll(resp.Body)
+		// VapidPkHashMismatch (400): a subscription foi criada com uma chave
+		// VAPID antiga (DB recriado etc.) — nunca mais vai funcionar. Apaga
+		// pra limpar o cadastro; o frontend re-inscreve no próximo open.
+		if resp.StatusCode == http.StatusBadRequest &&
+			strings.Contains(string(body), "VapidPkHashMismatch") {
+			m.db.Delete(s)
+		}
 		log.Printf("webpush erro (sub %d): status=%d body=%s endpoint=%s",
 			s.ID, resp.StatusCode, string(body), s.Endpoint)
 	}

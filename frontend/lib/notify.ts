@@ -49,6 +49,13 @@ function urlBase64ToBuffer(base64: string): ArrayBuffer {
   return buf;
 }
 
+function bufferToUrlBase64(buf: ArrayBuffer): string {
+  const bytes = new Uint8Array(buf);
+  let bin = "";
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
 async function ensurePushSubscription(): Promise<void> {
   if (typeof window === "undefined") return;
   if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
@@ -56,10 +63,26 @@ async function ensurePushSubscription(): Promise<void> {
 
   const reg = await navigator.serviceWorker.ready;
 
+  // Sempre busca a chave VAPID atual: o backend pode ter rotacionado (ex.: DB
+  // recriado), e nesse caso a subscription cacheada no browser fica inválida
+  // (Apple/Google rejeitam com VapidPkHashMismatch). Aqui detectamos a deriva
+  // comparando applicationServerKey e re-inscrevemos com a chave nova.
+  const { public_key } = await api.vapidPublicKey();
+  if (!public_key) return;
+
   let sub = await reg.pushManager.getSubscription();
+  if (sub) {
+    const current = sub.options.applicationServerKey;
+    if (!current || bufferToUrlBase64(current) !== public_key) {
+      try {
+        await sub.unsubscribe();
+      } catch {
+        // ignora — vamos tentar criar uma nova de qualquer jeito
+      }
+      sub = null;
+    }
+  }
   if (!sub) {
-    const { public_key } = await api.vapidPublicKey();
-    if (!public_key) return;
     try {
       sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
