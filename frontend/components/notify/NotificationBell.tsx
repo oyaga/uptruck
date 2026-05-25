@@ -172,19 +172,16 @@ export default function NotificationBell() {
       {/* Dropdown popover */}
       {open && (
         <div
+          // Mobile: fixed na viewport (8px de cada lado), abaixo do topbar (52px).
+          // sm+:    absolute ancorado no sino, à direita, com 384px de largura.
+          className="ut-fade-in fixed left-2 right-2 top-14 z-50 sm:absolute sm:left-auto sm:right-0 sm:top-[42px] sm:w-96"
           style={{
-            position: "absolute",
-            right: 0,
-            top: 42,
-            zIndex: 50,
-            width: 340,
             background: "var(--ut-bg-elevated)",
             border: "1px solid var(--ut-border)",
             borderRadius: "var(--ut-radius-lg)",
             boxShadow: "var(--ut-shadow-md)",
             overflow: "hidden",
           }}
-          className="ut-fade-in sm:w-96"
         >
           {/* Popover header */}
           <header
