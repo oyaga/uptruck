@@ -19,7 +19,7 @@ RUN bun run build
 ###############################################################################
 # Stage 2 — backend build (Go com embed da SPA)
 ###############################################################################
-FROM golang:1.22-alpine AS backend
+FROM golang:1.24-alpine AS backend
 WORKDIR /src
 
 RUN apk add --no-cache git
