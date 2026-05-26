@@ -168,6 +168,36 @@ export const api = {
   // Admin: lista enxuta de usuários (pra escolher pra quem criar a cotação).
   listUsers: () => req<UserApi[]>("GET", "/api/admin/users"),
 
+  // Admin: baixa as cotações filtradas como planilha .xlsx.
+  // Retorna o blob + nome de arquivo sugerido pelo backend.
+  exportCotacoes: async (
+    filters: { status?: string; uf_ori?: string; uf_des?: string; from?: string; to?: string },
+  ): Promise<{ blob: Blob; filename: string }> => {
+    const qs = new URLSearchParams();
+    for (const [k, v] of Object.entries(filters)) {
+      if (v) qs.set(k, v);
+    }
+    const url =
+      apiBase() +
+      `/api/admin/cotacoes/export${qs.toString() ? "?" + qs.toString() : ""}`;
+    const r = await fetch(url, { credentials: "include", cache: "no-store" });
+    if (!r.ok) {
+      let msg = `Falha ao exportar (HTTP ${r.status})`;
+      try {
+        const j = (await r.json()) as { error?: string };
+        if (j.error) msg = j.error;
+      } catch {
+        /* corpo não-JSON — mantém msg padrão */
+      }
+      throw new ApiError(r.status, msg, null);
+    }
+    const disp = r.headers.get("Content-Disposition") || "";
+    const m = /filename="?([^";]+)"?/.exec(disp);
+    const filename = m?.[1] || "cotacoes.xlsx";
+    const blob = await r.blob();
+    return { blob, filename };
+  },
+
   listAll: (status?: string) =>
     req<CotacaoApi[]>(
       "GET",

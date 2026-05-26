@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ShieldCheck, Truck, X } from "lucide-react";
+import { Download, Loader2, ShieldCheck, Truck, X } from "lucide-react";
 import type { CotacaoApi } from "@/lib/api";
 import { api } from "@/lib/api";
 import { COTACAO_STATUS, statusMeta } from "@/lib/cotacaoStatus";
@@ -102,6 +102,33 @@ export default function AdminPanel({
       setQuotes((prev) => prev.map((q) => (q.id === id ? updated : q)));
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Falha ao atualizar a cotação.");
+    }
+  };
+
+  const [exporting, setExporting] = useState(false);
+  const exportXlsx = async () => {
+    setErr("");
+    setExporting(true);
+    try {
+      const { blob, filename } = await api.exportCotacoes({
+        status: statusFilter !== "all" ? statusFilter : undefined,
+        uf_ori: ufOri || undefined,
+        uf_des: ufDes || undefined,
+        from: dateFrom || undefined,
+        to: dateTo || undefined,
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Falha ao exportar.");
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -240,6 +267,22 @@ export default function AdminPanel({
         >
           {shown.length} resultado{shown.length !== 1 ? "s" : ""}
         </div>
+
+        <button
+          type="button"
+          onClick={exportXlsx}
+          disabled={exporting || shown.length === 0}
+          className="ut-btn ut-btn-sm"
+          style={{ alignSelf: "flex-end" }}
+          title={
+            shown.length === 0
+              ? "Sem cotações para exportar"
+              : "Baixar como planilha .xlsx aplicando os filtros atuais"
+          }
+        >
+          {exporting ? <Loader2 size={12} className="animate-spin-slow" /> : <Download size={12} />}
+          Exportar Excel
+        </button>
       </div>
 
       {/* Error */}

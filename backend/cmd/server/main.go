@@ -207,6 +207,7 @@ func main() {
 			r.Group(func(r chi.Router) {
 				r.Use(mw.RequireRole("admin"))
 				r.Get("/admin/cotacoes", cotH.ListAll)
+				r.Get("/admin/cotacoes/export", cotH.ExportXlsx)
 				r.Patch("/admin/cotacoes/{id}/responder", cotH.Responder)
 				r.Patch("/admin/cotacoes/{id}/recusar", cotH.Recusar)
 				r.Get("/admin/users", authH.ListUsers)
