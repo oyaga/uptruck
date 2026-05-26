@@ -67,6 +67,9 @@ type createCotacaoReq struct {
 	ValorSugerido float64 `json:"valor_sugerido"`
 	EmpresaOriID  *uint   `json:"empresa_ori_id"`
 	EmpresaDesID  *uint   `json:"empresa_des_id"`
+	// Admin pode criar uma cotação em nome de outro usuário (ele mesmo ou
+	// um cotador). Ignorado para usuários não-admin.
+	CreatedForUserID *uint `json:"created_for_user_id"`
 }
 
 type decisionReq struct {
@@ -117,6 +120,19 @@ func (h *CotacaoHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Por padrão a cotação fica em nome de quem criou. O admin pode escolher
+	// criar em nome de outro usuário (ex.: registrar a cotação pra Laura tocar).
+	creatorID := user.ID
+	if user.Role == "admin" && body.CreatedForUserID != nil && *body.CreatedForUserID != 0 {
+		var n int64
+		h.DB.Model(&models.User{}).Where("id = ?", *body.CreatedForUserID).Count(&n)
+		if n == 0 {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "usuário destinatário inválido"})
+			return
+		}
+		creatorID = *body.CreatedForUserID
+	}
+
 	c := models.Cotacao{
 		Status:        statusEmAnalise,
 		UfOri:         body.UfOri,
@@ -128,7 +144,7 @@ func (h *CotacaoHandler) Create(w http.ResponseWriter, r *http.Request) {
 		Categoria:     body.Categoria,
 		AnttMin:       min,
 		ValorSugerido: body.ValorSugerido,
-		CreatedBy:     ptrUint(user.ID),
+		CreatedBy:     ptrUint(creatorID),
 	}
 	c.CepOri = strNil(body.CepOri)
 	c.BairroOri = strNil(body.BairroOri)

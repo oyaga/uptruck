@@ -181,6 +181,28 @@ func (h *AuthHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, u)
 }
 
+// ListUsers — só admin. Devolve uma versão enxuta da lista de usuários
+// (id/name/email/role) usada, por exemplo, pra escolher pra quem o admin
+// está criando a nova cotação.
+func (h *AuthHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
+	var users []models.User
+	if err := h.DB.Order("role ASC, name ASC").Find(&users).Error; err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "falha ao listar usuários"})
+		return
+	}
+	type out struct {
+		ID    uint   `json:"id"`
+		Name  string `json:"name"`
+		Email string `json:"email"`
+		Role  string `json:"role"`
+	}
+	resp := make([]out, len(users))
+	for i, u := range users {
+		resp[i] = out{ID: u.ID, Name: u.Name, Email: u.Email, Role: u.Role}
+	}
+	writeJSON(w, http.StatusOK, resp)
+}
+
 func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     cookieName,

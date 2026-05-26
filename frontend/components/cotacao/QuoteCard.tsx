@@ -32,6 +32,9 @@ import StatusBadge from "./StatusBadge";
 interface Props {
   q: CotacaoApi;
   role: "admin" | "cotador";
+  // Quando admin é o dono da cotação (created_by == ele), ganha também os
+  // botões de transição do cotador. Sem isso, admin só vê ações de admin.
+  currentUserId?: number;
   onAdminRespond?: (id: number, comment: string, valorSugerido: number) => void;
   onAdminReject?: (id: number, comment: string) => void;
   onCotadorAction?: (id: number, acao: string) => void;
@@ -48,6 +51,7 @@ const fmtDate = (iso: string) => {
 export default function QuoteCard({
   q,
   role,
+  currentUserId,
   onAdminRespond,
   onAdminReject,
   onCotadorAction,
@@ -75,9 +79,15 @@ export default function QuoteCard({
   const typedValue = centsToNumber(valorCents);
   const typedBelowFloor = typedValue > 0 && min > 0 && typedValue < min;
 
-  // Ações do cotador para o status atual.
-  const cotadorActions: CotadorAction[] =
-    role === "cotador" ? COTADOR_ACTIONS[q.status] || [] : [];
+  // Cotador sempre vê as transições. Admin só vê quando ele mesmo é o
+  // dono da cotação (created_by == admin) — caso em que precisa tocar o
+  // fluxo do cotador também.
+  const isOwner =
+    currentUserId !== undefined && currentUserId === q.created_by;
+  const canActAsCotador = role === "cotador" || (role === "admin" && isOwner);
+  const cotadorActions: CotadorAction[] = canActAsCotador
+    ? COTADOR_ACTIONS[q.status] || []
+    : [];
 
   const runCotadorAction = (a: CotadorAction) => {
     if (a.confirm && !window.confirm(a.confirm)) return;

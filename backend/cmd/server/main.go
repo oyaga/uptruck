@@ -209,6 +209,7 @@ func main() {
 				r.Get("/admin/cotacoes", cotH.ListAll)
 				r.Patch("/admin/cotacoes/{id}/responder", cotH.Responder)
 				r.Patch("/admin/cotacoes/{id}/recusar", cotH.Recusar)
+				r.Get("/admin/users", authH.ListUsers)
 				r.Post("/admin/notificacoes/broadcast", notifH.Broadcast)
 			})
 		})

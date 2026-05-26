@@ -1,10 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, Lightbulb, MapPin, Package } from "lucide-react";
+import { AlertTriangle, Lightbulb, MapPin, Package, User as UserIcon } from "lucide-react";
 import { calcMin, fmt, fmtCep, suggestVeiculoByPeso, VEI } from "@/lib/antt";
-import { api, ApiError, type EmpresaApi } from "@/lib/api";
+import { api, ApiError, type EmpresaApi, type UserApi } from "@/lib/api";
+import { useSession } from "@/lib/session";
 import CepBlock from "@/components/cotacao/CepBlock";
 import EmpresaSelect from "@/components/cotacao/EmpresaSelect";
 import AnttCalculator from "@/components/cotacao/AnttCalculator";
@@ -45,11 +46,31 @@ const empty = {
 
 export default function NovaCotacaoForm() {
   const router = useRouter();
+  const { user } = useSession();
+  const isAdmin = user?.role === "admin";
   const [f, setF] = useState(empty);
   const [err, setErr] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const set = <K extends keyof typeof empty>(k: K, v: typeof empty[K]) =>
     setF((p) => ({ ...p, [k]: v }));
+
+  // Admin pode escolher pra quem está criando a cotação. Cotador sempre cria
+  // pra si mesmo (campo escondido).
+  const [users, setUsers] = useState<UserApi[]>([]);
+  const [createdForUserId, setCreatedForUserId] = useState<number>(0);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    api
+      .listUsers()
+      .then((list) => {
+        setUsers(list);
+        setCreatedForUserId((prev) => prev || (user?.id ?? 0));
+      })
+      .catch(() => {
+        /* sem a lista, o admin ainda consegue criar — a cotação fica em nome dele */
+      });
+  }, [isAdmin, user?.id]);
 
   // Ao escolher uma empresa cadastrada, pré-preenche o endereço daquele lado
   // (coleta = origem, entrega = destino) — evita redigitar dados já salvos.
@@ -155,8 +176,13 @@ export default function NovaCotacaoForm() {
         valor_sugerido: sug,
         empresa_ori_id: f.empresaOriId || undefined,
         empresa_des_id: f.empresaDesId || undefined,
+        // Admin escolhe pra quem criar; o backend ignora esse campo p/ cotador.
+        created_for_user_id:
+          isAdmin && createdForUserId ? createdForUserId : undefined,
       });
-      router.replace("/cotacao?created=1");
+      // Admin volta pro painel admin (onde a cotação aparece em "Em Análise").
+      // Cotador vai pra "Minhas Cotações".
+      router.replace(isAdmin ? "/admin?created=1" : "/cotacao?created=1");
       router.refresh();
     } catch (e) {
       const msg =
@@ -173,6 +199,39 @@ export default function NovaCotacaoForm() {
 
   return (
     <div className="flex flex-col gap-4">
+      {/* Admin: escolha pra quem está criando a cotação */}
+      {isAdmin && users.length > 0 && (
+        <section className="flex flex-wrap items-center gap-3 rounded-xl border border-yellow-300 bg-yellow-50 px-4 py-3">
+          <UserIcon size={14} className="text-yellow-800 shrink-0" />
+          <label
+            htmlFor="cot-para"
+            className="text-[12px] font-bold uppercase tracking-wider text-yellow-900"
+          >
+            Cotação para
+          </label>
+          <select
+            id="cot-para"
+            className="rounded-md border border-yellow-300 bg-white px-2.5 py-1.5 text-sm font-semibold text-gray-900 outline-none focus:border-yellow-600"
+            value={createdForUserId || ""}
+            onChange={(e) => setCreatedForUserId(Number(e.target.value))}
+          >
+            {users.map((u) => {
+              const isMe = u.id === user?.id;
+              const roleTag = u.role === "admin" ? "admin" : "cotador";
+              return (
+                <option key={u.id} value={u.id}>
+                  {isMe ? "Eu" : u.name} · {roleTag}
+                  {isMe ? "" : ` (${u.email})`}
+                </option>
+              );
+            })}
+          </select>
+          <span className="text-[11px] text-yellow-800">
+            quem fica responsável por dar andamento depois da resposta
+          </span>
+        </section>
+      )}
+
       {/* Rota */}
       <section className="rounded-xl border border-gray-200 bg-white p-5">
         <div className="mb-3.5 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest text-gray-400">

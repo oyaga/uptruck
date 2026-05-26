@@ -27,8 +27,10 @@ const VARIANT_COLORS: Record<
 
 export default function AdminPanel({
   initialQuotes,
+  currentUserId,
 }: {
   initialQuotes: CotacaoApi[];
+  currentUserId?: number;
 }) {
   const [quotes, setQuotes]       = useState(initialQuotes);
   const [statusFilter, setStatus] = useState<StatusFilter>("all");
@@ -89,6 +91,17 @@ export default function AdminPanel({
       setQuotes((prev) => prev.map((q) => (q.id === id ? updated : q)));
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Falha ao recusar a cotação.");
+    }
+  };
+
+  // Transições de cotador (admin pode acionar nas cotações que ele mesmo criou).
+  const cotadorAction = async (id: number, acao: string) => {
+    setErr("");
+    try {
+      const updated = await api.transicao(id, acao);
+      setQuotes((prev) => prev.map((q) => (q.id === id ? updated : q)));
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Falha ao atualizar a cotação.");
     }
   };
 
@@ -301,8 +314,10 @@ export default function AdminPanel({
             key={q.id}
             q={q}
             role="admin"
+            currentUserId={currentUserId}
             onAdminRespond={respond}
             onAdminReject={reject}
+            onCotadorAction={cotadorAction}
           />
         ))
       )}

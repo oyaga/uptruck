@@ -11,6 +11,14 @@ export interface ApiUser {
   role: "cotador" | "admin";
 }
 
+// Resposta enxuta de /api/admin/users (sem dados sensíveis).
+export interface UserApi {
+  id: number;
+  name: string;
+  email: string;
+  role: "cotador" | "admin";
+}
+
 export interface NotificacaoApi {
   id: number;
   user_id: number;
@@ -154,8 +162,11 @@ export const api = {
 
   listMine: () => req<CotacaoApi[]>("GET", "/api/cotacoes"),
 
-  create: (body: Partial<CotacaoApi>) =>
+  create: (body: Partial<CotacaoApi> & { created_for_user_id?: number }) =>
     req<CotacaoApi>("POST", "/api/cotacoes", { body }),
+
+  // Admin: lista enxuta de usuários (pra escolher pra quem criar a cotação).
+  listUsers: () => req<UserApi[]>("GET", "/api/admin/users"),
 
   listAll: (status?: string) =>
     req<CotacaoApi[]>(
