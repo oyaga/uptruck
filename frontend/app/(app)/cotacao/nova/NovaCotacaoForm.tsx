@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, Lightbulb, MapPin, Package, User as UserIcon } from "lucide-react";
+import { AlertTriangle, Info, Lightbulb, MapPin, Package, Pencil, User as UserIcon } from "lucide-react";
 import { calcMin, fmt, fmtCep, suggestVeiculoByPeso, VEI } from "@/lib/antt";
 import { api, ApiError, type EmpresaApi, type UserApi } from "@/lib/api";
 import { useSession } from "@/lib/session";
@@ -72,9 +72,19 @@ export default function NovaCotacaoForm() {
       });
   }, [isAdmin, user?.id]);
 
+  // Snapshot do endereço da empresa no momento da seleção. Serve pra
+  // (1) detectar quando o usuário ajustou o endereço pra essa cotação
+  // específica e (2) deixar claro que o vínculo c/ a empresa fica salvo
+  // mesmo com endereço diferente do cadastro.
+  const [empresaOriBase, setEmpresaOriBase] = useState<EmpresaApi | null>(null);
+  const [empresaDesBase, setEmpresaDesBase] = useState<EmpresaApi | null>(null);
+
   // Ao escolher uma empresa cadastrada, pré-preenche o endereço daquele lado
   // (coleta = origem, entrega = destino) — evita redigitar dados já salvos.
-  const pickEmpresaOri = (e: EmpresaApi | null) =>
+  // O usuário pode editar o endereço depois — a cotação fica com o endereço
+  // ajustado, mas o vínculo com a empresa fica registrado.
+  const pickEmpresaOri = (e: EmpresaApi | null) => {
+    setEmpresaOriBase(e);
     setF((p) =>
       e
         ? {
@@ -87,8 +97,10 @@ export default function NovaCotacaoForm() {
           }
         : { ...p, empresaOriId: 0 },
     );
+  };
 
-  const pickEmpresaDes = (e: EmpresaApi | null) =>
+  const pickEmpresaDes = (e: EmpresaApi | null) => {
+    setEmpresaDesBase(e);
     setF((p) =>
       e
         ? {
@@ -101,6 +113,39 @@ export default function NovaCotacaoForm() {
           }
         : { ...p, empresaDesId: 0 },
     );
+  };
+
+  // Compara o endereço atual do form com o cadastrado da empresa selecionada.
+  const enderecoDifereDaEmpresa = (
+    base: EmpresaApi | null,
+    cep: string,
+    uf: string,
+    cidade: string,
+    bairro: string,
+  ): boolean => {
+    if (!base) return false;
+    return (
+      (base.cep ? fmtCep(base.cep) : "") !== cep ||
+      (base.uf || "") !== uf ||
+      (base.cidade || "") !== cidade ||
+      (base.bairro || "") !== bairro
+    );
+  };
+
+  const oriEditado = enderecoDifereDaEmpresa(
+    empresaOriBase,
+    f.cepOri,
+    f.ufOri,
+    f.cidOri,
+    f.bairroOri,
+  );
+  const desEditado = enderecoDifereDaEmpresa(
+    empresaDesBase,
+    f.cepDes,
+    f.ufDes,
+    f.cidDes,
+    f.bairroDes,
+  );
 
   const min = useMemo(
     () => calcMin(f.veiculo, f.distancia, f.categoria),
@@ -248,6 +293,9 @@ export default function NovaCotacaoForm() {
                 value={f.empresaOriId}
                 onSelect={pickEmpresaOri}
               />
+              {empresaOriBase && (
+                <EmpresaEnderecoHint side="coleta" alterado={oriEditado} />
+              )}
             </div>
             <CepBlock
               prefix="ori"
@@ -271,6 +319,9 @@ export default function NovaCotacaoForm() {
                 value={f.empresaDesId}
                 onSelect={pickEmpresaDes}
               />
+              {empresaDesBase && (
+                <EmpresaEnderecoHint side="entrega" alterado={desEditado} />
+              )}
             </div>
             <CepBlock
               prefix="des"
@@ -495,6 +546,32 @@ export default function NovaCotacaoForm() {
           </section>
         </div>
       </div>
+    </div>
+  );
+}
+
+// Mostra que o endereço veio do cadastro da empresa e pode ser editado.
+// Quando o usuário ajusta os campos, mostra um selo "endereço alterado"
+// — útil pra deixar claro que a cotação não está usando o cadastro tal qual.
+function EmpresaEnderecoHint({
+  side,
+  alterado,
+}: {
+  side: "coleta" | "entrega";
+  alterado: boolean;
+}) {
+  return (
+    <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px]">
+      <Info size={11} className="shrink-0 text-gray-400" />
+      <span className="text-gray-500">
+        Endereço do cadastro — edite abaixo se a {side} for em outro local.
+      </span>
+      {alterado && (
+        <span className="inline-flex items-center gap-1 rounded-full bg-yellow-100 px-2 py-0.5 font-semibold text-yellow-900">
+          <Pencil size={9} />
+          endereço alterado
+        </span>
+      )}
     </div>
   );
 }

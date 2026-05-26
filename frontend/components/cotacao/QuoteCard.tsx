@@ -95,6 +95,24 @@ export default function QuoteCard({
     setOpen(false);
   };
 
+  // Endereço da cotação pode diferir do cadastro da empresa quando a coleta/
+  // entrega acontece em outro local (galpão, filial, depósito do cliente etc.).
+  // Sinalizamos isso no rótulo da empresa pra deixar a divergência explícita.
+  const oriDifere = enderecoDifere(
+    q.empresa_ori,
+    q.cep_ori,
+    q.uf_ori,
+    q.cidade_ori,
+    q.bairro_ori,
+  );
+  const desDifere = enderecoDifere(
+    q.empresa_des,
+    q.cep_des,
+    q.uf_des,
+    q.cidade_des,
+    q.bairro_des,
+  );
+
   const rotaRows: [string, string][] = [
     [
       "Origem",
@@ -102,13 +120,21 @@ export default function QuoteCard({
     ],
   ];
   if (q.empresa_ori)
-    rotaRows.push(["Empresa (Coleta)", empresaLabel(q.empresa_ori)]);
+    rotaRows.push([
+      "Empresa (Coleta)",
+      empresaLabel(q.empresa_ori) +
+        (oriDifere ? " · endereço diferente do cadastro" : ""),
+    ]);
   rotaRows.push([
     "Destino",
     `${q.cep_des ? q.cep_des + " · " : ""}${q.uf_des}/${q.cidade_des}${q.bairro_des ? " — " + q.bairro_des : ""}`,
   ]);
   if (q.empresa_des)
-    rotaRows.push(["Empresa (Entrega)", empresaLabel(q.empresa_des)]);
+    rotaRows.push([
+      "Empresa (Entrega)",
+      empresaLabel(q.empresa_des) +
+        (desDifere ? " · endereço diferente do cadastro" : ""),
+    ]);
   rotaRows.push(["Distância", `${q.distancia_km} km`]);
   rotaRows.push(["Veículo", VEI[q.veiculo as keyof typeof VEI]?.l || q.veiculo]);
 
@@ -462,5 +488,25 @@ export default function QuoteCard({
         )}
       </div>
     </div>
+  );
+}
+
+// Verifica se o endereço gravado na cotação (cep/uf/cidade/bairro) é
+// diferente do cadastro da empresa vinculada. Quando não há empresa
+// vinculada, não faz sentido comparar — devolve false.
+function enderecoDifere(
+  e: { cep?: string; uf?: string; cidade?: string; bairro?: string } | null | undefined,
+  cep: string | null | undefined,
+  uf: string,
+  cidade: string,
+  bairro: string | null | undefined,
+): boolean {
+  if (!e) return false;
+  const digits = (s?: string | null) => (s || "").replace(/\D/g, "");
+  return (
+    digits(e.cep) !== digits(cep) ||
+    (e.uf || "") !== uf ||
+    (e.cidade || "") !== cidade ||
+    (e.bairro || "") !== (bairro || "")
   );
 }
